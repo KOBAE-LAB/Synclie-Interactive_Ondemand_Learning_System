@@ -14,10 +14,23 @@ https://claude.ai/code/artifact/6ed10ac9-6621-41e4-99b9-f25ad7d9cc7f
 ```bash
 npm install
 cp .env.example .env.local  # 値を設定する
+```
+
+Supabaseプロジェクトに `supabase/migrations/` 配下のSQLを順番に適用してください
+(Supabase CLIの `supabase db push`、またはSQL Editorに貼り付けて実行)。
+
+テスト用の教師アカウントを作成します(サインアップ画面はまだないため):
+
+```bash
+node --env-file=.env.local scripts/dev/create-user.mjs \
+  --email teacher@example.com --password test1234 --role teacher --name "テスト教師"
+```
+
+```bash
 npm run dev
 ```
 
-[http://localhost:3000](http://localhost:3000) を開くと確認できます。
+[http://localhost:3000/login](http://localhost:3000/login) からログインし、`/courses` で授業・資料を登録できます。
 
 ## 技術スタック(段階1)
 
@@ -28,11 +41,13 @@ npm run dev
 
 ## ディレクトリ構成
 
-- `src/app/` — ページ・APIルート
+- `src/app/` — ページ・APIルート(`login/` ログイン, `courses/` F01 授業・資料登録)
 - `src/lib/supabase/` — Supabaseクライアント
 - `src/lib/ai/` — ペルソナ対話・論証評価ロジック
+- `src/lib/auth/` — パスワードハッシュ・ロール確認ヘルパー
 - `supabase/migrations/` — DBスキーマ
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(Python CLI)
+- `scripts/dev/` — 開発用スクリプト(テストアカウント作成など)
 
 ## 段階0プロトタイプ(参考)
 

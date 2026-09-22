@@ -86,13 +86,34 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
 ## 8. リポジトリ構成
 
 - `src/app/` — Next.js App Router のページ・APIルート
+  - `src/app/login/` — 段階1の簡易ログイン画面(メール+パスワード)
+  - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成し、
+    `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
 - `src/lib/ai/` — ペルソナ対話(`persona.ts`)、論証評価(`argument-evaluation.ts`)、OpenAIクライアント(`openai.ts`)
-- `src/auth.ts` — Auth.js設定
-- `supabase/migrations/` — DBスキーマ(`0001_init.sql`が初期骨組み。要件定義書6章参照)
+- `src/lib/auth/` — パスワードハッシュ(`password.ts`)、ロール確認ヘルパー(`session.ts`)
+- `src/auth.ts` — Auth.js設定(段階1: Credentialsプロバイダー。profiles.email / password_hash を照合)
+- `supabase/migrations/` — DBスキーマ
+  - `0001_init.sql` — 初期骨組み(要件定義書6章参照)
+  - `0002_auth_and_materials.sql` — ログイン用カラム(profiles.email/password_hash)、
+    `course_materials`テーブル(F01)、Storageバケット`materials`
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
+- `scripts/dev/create-user.mjs` — 開発用: テストアカウント(教師/生徒)を作成するスクリプト。
+  サインアップ画面はまだないため、当面はこれでアカウントを作る
+  (`node --env-file=.env.local scripts/dev/create-user.mjs --email ... --password ... --role teacher`)。
+
+### 認証まわりの注意(重要・要フォローアップ)
+
+- RLS(Row Level Security)は**まだ有効化していない**。教師専用ページは
+  `src/lib/auth/session.ts` の `requireRole()` によるアプリ側のロールチェック +
+  管理者クライアント(サービスロールキー、RLSをバイパス)で保護している。
+  本番投入前に、必ずSupabase側でRLSを有効化し、`courses.owner_teacher_id` /
+  `course_materials.uploaded_by` ベースのポリシーを追加すること。
+- 段階1のCredentials認証は自前のパスワードハッシュ(bcrypt)を`profiles`に保存する方式。
+  段階2でSSO(F22)に移行する際、`password_hash`列はそのまま残しつつ、
+  SSOプロバイダーのsubject idを別途キーとして使う設計にする(要件定義書6章・12章参照)。
 
 ## 9. 開発の進め方
 
