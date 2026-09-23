@@ -79,24 +79,35 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
 - **ホスティング**: Vercel(アプリ) + Supabase(データ)
 - **LLM**: OpenAI(Responses API)。マルチモーダル対応・構造化出力の成熟度・コストを理由に選定
   (Anthropic/Googleとの比較検討の結果)。モデル名は変わりやすいため、
-  `src/lib/ai/openai.ts` の `MODEL_PERSONA` / `MODEL_JUDGE` を環境変数で上書き可能にしてある。
-  - **注意**: OpenAIのAPI/SDKは更新が速い。`responses.create` / `responses.parse` まわりで
-    エラーが出たら、その時点の公式ドキュメント(platform.openai.com/docs)を確認し、書き換えること。
+  `src/lib/ai/openai.ts` の `MODEL_PERSONA` / `MODEL_JUDGE` / `MODEL_EMBEDDING`(F02の埋め込み用)
+  を環境変数で上書き可能にしてある。同ファイルの `openai` エクスポートは Proxy 越しの遅延初期化に
+  しており、`OPENAI_API_KEY` 未設定でも `next build` 自体は通る(実際に呼び出した瞬間にエラーになる)。
+  - **注意**: OpenAIのAPI/SDKは更新が速い。`responses.create` / `responses.parse` / `embeddings.create`
+    まわりでエラーが出たら、その時点の公式ドキュメント(platform.openai.com/docs)を確認し、書き換えること。
 
 ## 8. リポジトリ構成
 
 - `src/app/` — Next.js App Router のページ・APIルート
   - `src/app/login/` — 段階1の簡易ログイン画面(メール+パスワード)
   - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成し、
-    `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする
+    `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
+    同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
+    (`actions.ts` の `generateMaterialRagAction` / `generateAllPendingRagAction`)
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
 - `src/lib/ai/` — ペルソナ対話(`persona.ts`)、論証評価(`argument-evaluation.ts`)、OpenAIクライアント(`openai.ts`)
+- `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
+  `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
+  `material_chunks`保存までの一連の処理。失敗時は`course_materials.rag_status='failed'`
+  + `rag_error`に理由を記録し、教師が「再生成」できるようにする)
 - `src/lib/auth/` — パスワードハッシュ(`password.ts`)、ロール確認ヘルパー(`session.ts`)
 - `src/auth.ts` — Auth.js設定(段階1: Credentialsプロバイダー。profiles.email / password_hash を照合)
 - `supabase/migrations/` — DBスキーマ
   - `0001_init.sql` — 初期骨組み(要件定義書6章参照)
   - `0002_auth_and_materials.sql` — ログイン用カラム(profiles.email/password_hash)、
     `course_materials`テーブル(F01)、Storageバケット`materials`
+  - `0003_rag_pipeline.sql` — F02用。`material_chunks`に`material_id`/`chunk_index`/
+    `char_count`を追加(どの資料の何番目のチャンクかを追跡し、再生成時に該当資料の
+    チャンクだけ削除・作り直しできるようにする)。`course_materials.rag_error`も追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
