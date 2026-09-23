@@ -26,6 +26,24 @@ export interface PersonaBehaviorRuleFields {
   interventionCondition: string;
 }
 
+export type PersonaStatus = "draft" | "approved" | "active";
+
+async function getOwnedPersona(
+  admin: ReturnType<typeof createAdminClient>,
+  courseId: string,
+  personaId: string,
+) {
+  const { data: persona } = await admin
+    .from("personas")
+    .select("id, course_id, status")
+    .eq("id", personaId)
+    .maybeSingle();
+  if (!persona || persona.course_id !== courseId) {
+    throw new Error("ペルソナが見つかりません。");
+  }
+  return persona as { id: string; course_id: string; status: PersonaStatus };
+}
+
 function readPersonaFormData(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) {
@@ -85,14 +103,7 @@ export async function updatePersonaAction(
   const admin = createAdminClient();
   await assertOwnsCourse(admin, courseId, user.id);
 
-  const { data: persona } = await admin
-    .from("personas")
-    .select("id, course_id")
-    .eq("id", personaId)
-    .maybeSingle();
-  if (!persona || persona.course_id !== courseId) {
-    throw new Error("ペルソナが見つかりません。");
-  }
+  await getOwnedPersona(admin, courseId, personaId);
 
   const { name, profile, stance, behaviorRules } = readPersonaFormData(formData);
 
@@ -119,15 +130,7 @@ export async function deletePersonaAction(courseId: string, personaId: string) {
   const { user } = await requireRole("teacher");
   const admin = createAdminClient();
   await assertOwnsCourse(admin, courseId, user.id);
-
-  const { data: persona } = await admin
-    .from("personas")
-    .select("id, course_id")
-    .eq("id", personaId)
-    .maybeSingle();
-  if (!persona || persona.course_id !== courseId) {
-    throw new Error("ペルソナが見つかりません。");
-  }
+  await getOwnedPersona(admin, courseId, personaId);
 
   const { error } = await admin.from("personas").delete().eq("id", personaId);
   if (error) {
@@ -135,4 +138,47 @@ export async function deletePersonaAction(courseId: string, personaId: string) {
   }
 
   revalidatePath(`/courses/${courseId}/personas`);
+}
+
+// F04: 承認ワークフロー。draft → approved → active の順にのみ進める
+// (下書きのまま授業で使われることを防ぐ)。逆方向(使用中→承認済み)は
+// 「このペルソナを今回は使わない」という運用のために許可する。
+async function setPersonaStatus(
+  courseId: string,
+  personaId: string,
+  from: PersonaStatus,
+  to: PersonaStatus,
+) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+
+  const persona = await getOwnedPersona(admin, courseId, personaId);
+  if (persona.status !== from) {
+    throw new Error(
+      `このペルソナは現在「${persona.status}」の状態のため、この操作はできません。`,
+    );
+  }
+
+  const { error } = await admin
+    .from("personas")
+    .update({ status: to, updated_at: new Date().toISOString() })
+    .eq("id", personaId);
+  if (error) {
+    throw new Error(`状態の更新に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/courses/${courseId}/personas`);
+}
+
+export async function approvePersonaAction(courseId: string, personaId: string) {
+  await setPersonaStatus(courseId, personaId, "draft", "approved");
+}
+
+export async function activatePersonaAction(courseId: string, personaId: string) {
+  await setPersonaStatus(courseId, personaId, "approved", "active");
+}
+
+export async function deactivatePersonaAction(courseId: string, personaId: string) {
+  await setPersonaStatus(courseId, personaId, "active", "approved");
 }

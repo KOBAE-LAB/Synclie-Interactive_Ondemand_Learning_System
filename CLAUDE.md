@@ -93,11 +93,14 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
     (`actions.ts` の `generateMaterialRagAction` / `generateAllPendingRagAction`)
-    - `[courseId]/personas/` — F03(ペルソナ設定)。段階1では教師設定型(`tier='teacher_defined'`)
-      のみを教師が作成・編集・削除する。プロフィール/立場と目標/行動ルールを入力するフォームは
-      `persona-form.tsx` を作成・編集で共用。知識源(授業RAG)は`course_id`で暗黙に決まるため
-      入力フォームには含めない。RAG初期型・学習進化型(資料や学習者データからの自動生成)は
-      段階2のF10で扱う
+    - `[courseId]/personas/` — F03(ペルソナ設定)+F04(教師による擬似メンバー設定)。
+      段階1では教師設定型(`tier='teacher_defined'`)のみを教師が作成・編集・削除する。
+      プロフィール/立場と目標/行動ルールを入力するフォームは`persona-form.tsx`を作成・編集で共用。
+      知識源(授業RAG)は`course_id`で暗黙に決まるため入力フォームには含めない。
+      RAG初期型・学習進化型(資料や学習者データからの自動生成)は段階2のF10で扱う。
+      F04は`personas.status`(`draft`→`approved`→`active`)の承認ワークフローとして実装:
+      draftのまま対話に使われないよう、教師が明示的に承認(`approved`)し、
+      その授業で実際に使うペルソナだけを`active`にする(「人数」の管理はactiveの数で表現する)
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
 - `src/lib/courses/ownership.ts` — `assertOwnsCourse()`: 教師が自分の授業を操作しているかの
   確認(RLS未整備な段階1のアプリ側ガード)。`courses/[courseId]/`配下の複数のactions.tsから共用
@@ -115,6 +118,7 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
   - `0003_rag_pipeline.sql` — F02用。`material_chunks`に`material_id`/`chunk_index`/
     `char_count`を追加(どの資料の何番目のチャンクかを追跡し、再生成時に該当資料の
     チャンクだけ削除・作り直しできるようにする)。`course_materials.rag_error`も追加
+  - `0004_persona_approval.sql` — F04用。`personas.status`(`draft`/`approved`/`active`)を追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

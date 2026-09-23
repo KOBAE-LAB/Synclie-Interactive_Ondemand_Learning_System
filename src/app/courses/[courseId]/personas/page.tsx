@@ -2,13 +2,21 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
-import { createPersonaAction, deletePersonaAction } from "./actions";
+import {
+  createPersonaAction,
+  deletePersonaAction,
+  approvePersonaAction,
+  activatePersonaAction,
+  deactivatePersonaAction,
+  type PersonaStatus,
+} from "./actions";
 import { PersonaForm } from "./persona-form";
 
 interface PersonaRow {
   id: string;
   name: string;
   tier: string;
+  status: PersonaStatus;
   profile: { role?: string } | null;
 }
 
@@ -16,6 +24,18 @@ const TIER_LABELS: Record<string, string> = {
   teacher_defined: "教師設定型",
   rag_initial: "RAG初期型",
   evolved: "学習進化型",
+};
+
+const STATUS_LABELS: Record<PersonaStatus, string> = {
+  draft: "下書き",
+  approved: "承認済み",
+  active: "使用中",
+};
+
+const STATUS_STYLES: Record<PersonaStatus, string> = {
+  draft: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+  approved: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  active: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
 };
 
 export default async function PersonasPage({
@@ -39,10 +59,12 @@ export default async function PersonasPage({
 
   const { data: personas } = await admin
     .from("personas")
-    .select("id, name, tier, profile")
+    .select("id, name, tier, status, profile")
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
 
+  const rows = (personas ?? []) as PersonaRow[];
+  const activeCount = rows.filter((p) => p.status === "active").length;
   const boundCreateAction = createPersonaAction.bind(null, courseId);
 
   return (
@@ -54,10 +76,14 @@ export default async function PersonasPage({
         ← {course.title}
       </Link>
       <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-        ペルソナ設定(F03)
+        ペルソナ設定(F03/F04)
       </h1>
       <p className="mt-1 text-sm text-zinc-500">
-        AI擬似メンバーのプロフィール・立場・行動ルールを設定する。段階1では教師設定型のみ作成できる。
+        AI擬似メンバーのプロフィール・立場・行動ルールを設定し(F03)、承認のうえ授業で使うペルソナを選ぶ(F04)。
+        段階1では教師設定型のみ作成できる。
+      </p>
+      <p className="mt-1 text-sm text-zinc-500">
+        この授業で使用中のペルソナ: <span className="font-medium">{activeCount}体</span>
       </p>
 
       <div className="mt-8 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
@@ -68,12 +94,16 @@ export default async function PersonasPage({
       </div>
 
       <ul className="mt-8 space-y-2">
-        {((personas ?? []) as PersonaRow[]).map((persona) => {
+        {rows.map((persona) => {
           const boundDeleteAction = deletePersonaAction.bind(null, courseId, persona.id);
+          const boundApproveAction = approvePersonaAction.bind(null, courseId, persona.id);
+          const boundActivateAction = activatePersonaAction.bind(null, courseId, persona.id);
+          const boundDeactivateAction = deactivatePersonaAction.bind(null, courseId, persona.id);
+
           return (
             <li
               key={persona.id}
-              className="flex items-center justify-between rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
             >
               <Link
                 href={`/courses/${courseId}/personas/${persona.id}`}
@@ -87,18 +117,56 @@ export default async function PersonasPage({
                   [{TIER_LABELS[persona.tier] ?? persona.tier}]
                 </span>
               </Link>
-              <form action={boundDeleteAction}>
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  削除
-                </button>
-              </form>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[persona.status]}`}>
+                  {STATUS_LABELS[persona.status]}
+                </span>
+
+                {persona.status === "draft" && (
+                  <form action={boundApproveAction}>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      承認する
+                    </button>
+                  </form>
+                )}
+                {persona.status === "approved" && (
+                  <form action={boundActivateAction}>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      授業で使う
+                    </button>
+                  </form>
+                )}
+                {persona.status === "active" && (
+                  <form action={boundDeactivateAction}>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      使用をやめる
+                    </button>
+                  </form>
+                )}
+
+                <form action={boundDeleteAction}>
+                  <button
+                    type="submit"
+                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    削除
+                  </button>
+                </form>
+              </div>
             </li>
           );
         })}
-        {(!personas || personas.length === 0) && (
+        {rows.length === 0 && (
           <li className="text-sm text-zinc-500">まだペルソナがありません。上のフォームから作成してください。</li>
         )}
       </ul>
