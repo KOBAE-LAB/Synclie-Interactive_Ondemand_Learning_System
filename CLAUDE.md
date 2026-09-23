@@ -131,13 +131,19 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
       F08の振り返りのうち`shared_with_teacher=true`のものだけをクエリ時点で絞り込んで
       あわせて表示する(共有していない振り返りはこのクエリに含めない。UI側で隠すのではなく
       サーバー側で境界を作る)
+    - `[courseId]/students/` — F09用(学習データ蓄積のうち学習者プロファイル)。
+      この授業で提出物がある学習者ごとに、蓄積した成果・フィードバック・振り返り(F06〜F08)を
+      1本のテキストに束ねて`src/lib/ai/student-profile.ts`に渡し、得意な点・課題・
+      学習履歴の要約を生成する(`generateStudentProfileAction`、`student_profiles`に保存)。
+      段階2のF11(個別最適化支援)がこのプロファイルを読む想定。自動生成はせず、
+      呼び出し回数を絞るため教師が明示的に押したときだけ生成する
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
 - `src/lib/courses/ownership.ts` — `assertOwnsCourse()`: 教師が自分の授業を操作しているかの
   確認(RLS未整備な段階1のアプリ側ガード)。`courses/[courseId]/`配下の複数のactions.tsから共用
 - `src/lib/ai/` — ペルソナ対話(`persona.ts`)、論証評価(`argument-evaluation.ts`)、
   観点別AIフィードバック(`feedback.ts`、F07。`argument-evaluation.ts`とは別物:
   こちらは点数を返さず、教師が設定した観点ごとの助言を構造化出力で返す)、
-  OpenAIクライアント(`openai.ts`)
+  学習者プロファイル要約(`student-profile.ts`、F09)、OpenAIクライアント(`openai.ts`)
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
   `material_chunks`保存までの一連の処理。失敗時は`course_materials.rag_status='failed'`
@@ -161,6 +167,8 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     (観点ごとのAIフィードバック)テーブルと、`submissions.feedback_status`/`feedback_error`を追加
   - `0008_reflections.sql` — F08用。学習者の振り返り(学んだこと/迷ったこと/次にやりたいこと)を
     保存する`reflections`テーブルを追加。`shared_with_teacher`で教師への共有可否を選べる
+  - `0009_student_profiles.sql` — F09用。学習者プロファイル(得意な点/課題/学習履歴の要約)を
+    学習者×授業単位で保存する`student_profiles`テーブルを追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

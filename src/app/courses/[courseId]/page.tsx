@@ -96,6 +96,13 @@ export default async function CourseDetailPage({
       >
         提出物とフィードバック(F06/F07)→
       </Link>
+      <br />
+      <Link
+        href={`/courses/${courseId}/students`}
+        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+      >
+        学習者プロファイル(F09)→
+      </Link>
       <p className="mt-1 text-sm text-zinc-500">
         学習者ビュー(F05): 生徒アカウントでログインし
         <Link href={`/learn/${courseId}`} className="mx-1 hover:underline">
