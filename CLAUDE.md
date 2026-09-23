@@ -93,7 +93,14 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
     (`actions.ts` の `generateMaterialRagAction` / `generateAllPendingRagAction`)
+    - `[courseId]/personas/` — F03(ペルソナ設定)。段階1では教師設定型(`tier='teacher_defined'`)
+      のみを教師が作成・編集・削除する。プロフィール/立場と目標/行動ルールを入力するフォームは
+      `persona-form.tsx` を作成・編集で共用。知識源(授業RAG)は`course_id`で暗黙に決まるため
+      入力フォームには含めない。RAG初期型・学習進化型(資料や学習者データからの自動生成)は
+      段階2のF10で扱う
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
+- `src/lib/courses/ownership.ts` — `assertOwnsCourse()`: 教師が自分の授業を操作しているかの
+  確認(RLS未整備な段階1のアプリ側ガード)。`courses/[courseId]/`配下の複数のactions.tsから共用
 - `src/lib/ai/` — ペルソナ対話(`persona.ts`)、論証評価(`argument-evaluation.ts`)、OpenAIクライアント(`openai.ts`)
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→

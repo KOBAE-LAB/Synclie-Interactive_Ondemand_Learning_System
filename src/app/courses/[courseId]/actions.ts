@@ -4,28 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { generateMaterialRag } from "@/lib/rag/generate";
+import { assertOwnsCourse } from "@/lib/courses/ownership";
 
 const MATERIAL_KINDS = ["syllabus", "pdf", "word", "ppt", "text", "video_subtitle", "url"] as const;
 type MaterialKind = (typeof MATERIAL_KINDS)[number];
 
 function isMaterialKind(value: unknown): value is MaterialKind {
   return typeof value === "string" && (MATERIAL_KINDS as readonly string[]).includes(value);
-}
-
-// 所有者チェック(この教師の授業か)。RLSが未整備な段階1では、ここで明示的に確認する。
-async function assertOwnsCourse(
-  admin: ReturnType<typeof createAdminClient>,
-  courseId: string,
-  teacherId: string,
-) {
-  const { data: course, error } = await admin
-    .from("courses")
-    .select("id, owner_teacher_id")
-    .eq("id", courseId)
-    .maybeSingle();
-  if (error || !course || course.owner_teacher_id !== teacherId) {
-    throw new Error("この授業を操作する権限がありません。");
-  }
 }
 
 // F01: 授業・資料の登録。ファイル(PDF/Word/PPT/テキスト/動画字幕)はSupabase Storageへ、

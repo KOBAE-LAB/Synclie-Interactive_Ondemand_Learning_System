@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -74,6 +75,13 @@ export default async function CourseDetailPage({
     <div className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">{course.title}</h1>
       {course.subject && <p className="mt-1 text-sm text-zinc-500">{course.subject}</p>}
+
+      <Link
+        href={`/courses/${courseId}/personas`}
+        className="mt-4 inline-block text-sm text-zinc-500 hover:underline"
+      >
+        ペルソナ設定(F03)→
+      </Link>
 
       <form
         action={boundUploadAction}
