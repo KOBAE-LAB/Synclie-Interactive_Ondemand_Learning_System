@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { searchMaterialChunks } from "@/lib/rag/search";
 import { askPersona, type PersonaProfile, type ChatTurn } from "@/lib/ai/persona";
+import { generateOutcomeFeedback } from "@/lib/ai/feedback";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -223,6 +224,92 @@ export async function submitOutcomeAction(courseId: string, formData: FormData) 
   });
   if (error) {
     throw new Error(`成果の提出に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/learn/${courseId}`);
+}
+
+// F07: F06の提出物(成果)に対して、教師が設定した観点(evaluation_criteria)ごとに
+// AIフィードバック(良い点・次に考える問い・参照すべき資料の箇所)を生成する。
+// 再生成時は既存の submission_feedback を削除してから作り直す(F02と同じidempotentな方針)。
+export async function generateFeedbackAction(courseId: string, submissionId: string) {
+  const { user } = await requireRole("student");
+  const admin = createAdminClient();
+
+  const { data: submission } = await admin
+    .from("submissions")
+    .select("id, course_id, student_id, content")
+    .eq("id", submissionId)
+    .maybeSingle();
+  if (!submission || submission.course_id !== courseId || submission.student_id !== user.id) {
+    throw new Error("成果が見つかりません。");
+  }
+
+  await admin
+    .from("submissions")
+    .update({ feedback_status: "processing", feedback_error: null })
+    .eq("id", submissionId);
+
+  try {
+    const { data: criteria } = await admin
+      .from("evaluation_criteria")
+      .select("id, label, description")
+      .eq("course_id", courseId)
+      .order("position", { ascending: true });
+
+    if (!criteria || criteria.length === 0) {
+      throw new Error("この授業には評価の観点がまだ設定されていません。教師に設定を依頼してください。");
+    }
+
+    const materialChunks = await searchMaterialChunks(courseId, submission.content);
+    const materialText =
+      materialChunks.length > 0
+        ? materialChunks.map((chunk, i) => `[資料${i + 1}]\n${chunk}`).join("\n\n")
+        : "(この提出物に関連する資料は見つからなかった。)";
+
+    const feedbackItems = await generateOutcomeFeedback({
+      criteria: criteria.map((c) => ({ label: c.label, description: c.description })),
+      submissionContent: submission.content,
+      materialText,
+    });
+
+    const { error: deleteError } = await admin
+      .from("submission_feedback")
+      .delete()
+      .eq("submission_id", submissionId);
+    if (deleteError) {
+      throw new Error(`既存フィードバックの削除に失敗しました: ${deleteError.message}`);
+    }
+
+    const criteriaByLabel = new Map(criteria.map((c) => [c.label, c.id]));
+    const rows = feedbackItems.map((item) => ({
+      submission_id: submissionId,
+      criteria_id: criteriaByLabel.get(item.criteriaLabel) ?? null,
+      criteria_label: item.criteriaLabel,
+      good_points: item.goodPoints,
+      next_question: item.nextQuestion,
+      material_reference: item.materialReference,
+    }));
+
+    if (rows.length > 0) {
+      const { error: insertError } = await admin.from("submission_feedback").insert(rows);
+      if (insertError) {
+        throw new Error(`フィードバックの保存に失敗しました: ${insertError.message}`);
+      }
+    }
+
+    await admin
+      .from("submissions")
+      .update({ feedback_status: "done", feedback_error: null })
+      .eq("id", submissionId);
+  } catch (err) {
+    // ステータスを failed にして理由を保存する。ここでは投げ直さず、
+    // 学習者が画面上でエラー内容を見て「再生成」できるようにする(F02と同じ方針)。
+    const message = err instanceof Error ? err.message : "不明なエラーが発生しました。";
+    await admin
+      .from("submissions")
+      .update({ feedback_status: "failed", feedback_error: message })
+      .eq("id", submissionId);
   }
 
   revalidatePath(`/learn/${courseId}`);

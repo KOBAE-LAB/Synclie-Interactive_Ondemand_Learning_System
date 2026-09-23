@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
-import { sendMessageAction, submitOutcomeAction } from "./actions";
+import { sendMessageAction, submitOutcomeAction, generateFeedbackAction } from "./actions";
 
 interface DialogueTurnRow {
   id: string;
@@ -10,11 +10,31 @@ interface DialogueTurnRow {
   content: string;
 }
 
+type FeedbackStatus = "pending" | "processing" | "done" | "failed";
+
 interface SubmissionRow {
   id: string;
   content: string;
   created_at: string;
+  feedback_status: FeedbackStatus;
+  feedback_error: string | null;
 }
+
+interface FeedbackRow {
+  id: string;
+  submission_id: string;
+  criteria_label: string;
+  good_points: string;
+  next_question: string;
+  material_reference: string;
+}
+
+const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
+  pending: "未生成",
+  processing: "生成中",
+  done: "生成済み",
+  failed: "失敗",
+};
 
 export default async function LearnCourseSessionPage({
   params,
@@ -73,11 +93,27 @@ export default async function LearnCourseSessionPage({
 
   const { data: submissionRows } = await admin
     .from("submissions")
-    .select("id, content, created_at")
+    .select("id, content, created_at, feedback_status, feedback_error")
     .eq("course_id", courseId)
     .eq("student_id", user.id)
     .order("created_at", { ascending: false });
   const submissions = (submissionRows ?? []) as SubmissionRow[];
+
+  const feedbackBySubmission = new Map<string, FeedbackRow[]>();
+  if (submissions.length > 0) {
+    const { data: feedbackRows } = await admin
+      .from("submission_feedback")
+      .select("id, submission_id, criteria_label, good_points, next_question, material_reference")
+      .in(
+        "submission_id",
+        submissions.map((s) => s.id),
+      );
+    for (const row of (feedbackRows ?? []) as FeedbackRow[]) {
+      const list = feedbackBySubmission.get(row.submission_id) ?? [];
+      list.push(row);
+      feedbackBySubmission.set(row.submission_id, list);
+    }
+  }
 
   const boundSendAction = sendMessageAction.bind(null, courseId);
   const boundSubmitOutcomeAction = submitOutcomeAction.bind(null, courseId);
@@ -159,18 +195,71 @@ export default async function LearnCourseSessionPage({
         </form>
 
         {submissions.length > 0 && (
-          <ul className="mt-6 space-y-2">
-            {submissions.map((submission) => (
-              <li
-                key={submission.id}
-                className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
-              >
-                <p className="whitespace-pre-wrap">{submission.content}</p>
-                <p className="mt-2 text-xs text-zinc-400">
-                  {new Date(submission.created_at).toLocaleString("ja-JP")}
-                </p>
-              </li>
-            ))}
+          <ul className="mt-6 space-y-4">
+            {submissions.map((submission) => {
+              const boundGenerateFeedbackAction = generateFeedbackAction.bind(
+                null,
+                courseId,
+                submission.id,
+              );
+              const feedbackItems = feedbackBySubmission.get(submission.id) ?? [];
+
+              return (
+                <li
+                  key={submission.id}
+                  className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+                >
+                  <p className="whitespace-pre-wrap">{submission.content}</p>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="text-xs text-zinc-400">
+                      {new Date(submission.created_at).toLocaleString("ja-JP")}
+                    </p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-zinc-400">
+                        フィードバック: {FEEDBACK_STATUS_LABELS[submission.feedback_status]}
+                      </span>
+                      <form action={boundGenerateFeedbackAction}>
+                        <button
+                          type="submit"
+                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        >
+                          {submission.feedback_status === "done" ? "再生成する" : "フィードバックをもらう"}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+
+                  {submission.feedback_status === "failed" && submission.feedback_error && (
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                      {submission.feedback_error}
+                    </p>
+                  )}
+
+                  {feedbackItems.length > 0 && (
+                    <div className="mt-4 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                      {feedbackItems.map((item) => (
+                        <div key={item.id}>
+                          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                            {item.criteria_label}
+                          </p>
+                          <p className="mt-1">
+                            <span className="text-zinc-500">良い点: </span>
+                            {item.good_points}
+                          </p>
+                          <p className="mt-1">
+                            <span className="text-zinc-500">次に考える問い: </span>
+                            {item.next_question}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            参照すべき資料の箇所: {item.material_reference}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

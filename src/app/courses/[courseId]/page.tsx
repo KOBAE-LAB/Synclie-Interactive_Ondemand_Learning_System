@@ -82,6 +82,20 @@ export default async function CourseDetailPage({
       >
         ペルソナ設定(F03/F04)→
       </Link>
+      <br />
+      <Link
+        href={`/courses/${courseId}/criteria`}
+        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+      >
+        評価の観点(F07)→
+      </Link>
+      <br />
+      <Link
+        href={`/courses/${courseId}/submissions`}
+        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+      >
+        提出物とフィードバック(F06/F07)→
+      </Link>
       <p className="mt-1 text-sm text-zinc-500">
         学習者ビュー(F05): 生徒アカウントでログインし
         <Link href={`/learn/${courseId}`} className="mx-1 hover:underline">

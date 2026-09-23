@@ -103,8 +103,10 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     `askPersona`で発言を生成 → (5)保存、の順で処理する。
     同じページの下段にF06(テキスト入力)の「成果を提出する」フォームがある
     (`submitOutcomeAction`)。`dialogue_turns`(逐次のやり取り)とは別に、議論を経て
-    まとめた「成果」を`submissions`テーブルに保存する。F07(AIフィードバック)・
-    F08(振り返りとポートフォリオ)はこの`submissions`を参照する想定
+    まとめた「成果」を`submissions`テーブルに保存する。F08(振り返りとポートフォリオ)は
+    この`submissions`を参照する想定。各提出物には「フィードバックをもらう」ボタンがあり
+    (`generateFeedbackAction`、F07)、教師が`criteria/`で設定した観点ごとに
+    良い点・次に考える問い・参照すべき資料の箇所を生成し`submission_feedback`に保存する
   - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成し、
     `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
@@ -117,10 +119,18 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
       F04は`personas.status`(`draft`→`approved`→`active`)の承認ワークフローとして実装:
       draftのまま対話に使われないよう、教師が明示的に承認(`approved`)し、
       その授業で実際に使うペルソナだけを`active`にする(「人数」の管理はactiveの数で表現する)
+    - `[courseId]/criteria/` — F07用。評価の観点(例: 根拠の明確さ)を教師が作成・編集・削除する。
+      観点が1つも無いと学習者はAIフィードバックを受け取れない
+    - `[courseId]/submissions/` — F07用。教師が全学習者の提出物(F06)とAIフィードバックを
+      一覧で確認し、`updateFeedbackAction`でフィードバックの文面(良い点/次に考える問い/
+      参照すべき資料の箇所)を修正できる(要件定義書7章「教師は…確認、修正できる」)
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
 - `src/lib/courses/ownership.ts` — `assertOwnsCourse()`: 教師が自分の授業を操作しているかの
   確認(RLS未整備な段階1のアプリ側ガード)。`courses/[courseId]/`配下の複数のactions.tsから共用
-- `src/lib/ai/` — ペルソナ対話(`persona.ts`)、論証評価(`argument-evaluation.ts`)、OpenAIクライアント(`openai.ts`)
+- `src/lib/ai/` — ペルソナ対話(`persona.ts`)、論証評価(`argument-evaluation.ts`)、
+  観点別AIフィードバック(`feedback.ts`、F07。`argument-evaluation.ts`とは別物:
+  こちらは点数を返さず、教師が設定した観点ごとの助言を構造化出力で返す)、
+  OpenAIクライアント(`openai.ts`)
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
   `material_chunks`保存までの一連の処理。失敗時は`course_materials.rag_status='failed'`
@@ -140,6 +150,8 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
   - `0004_persona_approval.sql` — F04用。`personas.status`(`draft`/`approved`/`active`)を追加
   - `0005_persona_dialogue.sql` — F05用。`match_material_chunks` RPC(授業RAGのベクトル検索)を追加
   - `0006_submissions.sql` — F06用。学習者の「成果」を保存する`submissions`テーブルを追加
+  - `0007_feedback.sql` — F07用。`evaluation_criteria`(観点)・`submission_feedback`
+    (観点ごとのAIフィードバック)テーブルと、`submissions.feedback_status`/`feedback_error`を追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
