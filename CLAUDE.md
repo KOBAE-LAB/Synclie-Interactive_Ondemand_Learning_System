@@ -103,10 +103,14 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     `askPersona`で発言を生成 → (5)保存、の順で処理する。
     同じページの下段にF06(テキスト入力)の「成果を提出する」フォームがある
     (`submitOutcomeAction`)。`dialogue_turns`(逐次のやり取り)とは別に、議論を経て
-    まとめた「成果」を`submissions`テーブルに保存する。F08(振り返りとポートフォリオ)は
-    この`submissions`を参照する想定。各提出物には「フィードバックをもらう」ボタンがあり
-    (`generateFeedbackAction`、F07)、教師が`criteria/`で設定した観点ごとに
-    良い点・次に考える問い・参照すべき資料の箇所を生成し`submission_feedback`に保存する
+    まとめた「成果」を`submissions`テーブルに保存する。各提出物には「フィードバックをもらう」
+    ボタンがあり(`generateFeedbackAction`、F07)、教師が`criteria/`で設定した観点ごとに
+    良い点・次に考える問い・参照すべき資料の箇所を生成し`submission_feedback`に保存する。
+    フィードバック生成後(`feedback_status='done'`)は振り返りフォーム(F08、
+    `saveReflectionAction`)が現れる: 学んだこと・迷ったこと・次にやりたいことを
+    `reflections`に保存し(1提出物1件、`submission_id`にunique制約)、
+    「教師に共有する」チェックボックス(`shared_with_teacher`)で公開範囲を選べる。
+    `[courseId]/portfolio/` は成果・フィードバック・振り返りを時系列にまとめた読み取り専用ビュー
   - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成し、
     `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
@@ -123,7 +127,10 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
       観点が1つも無いと学習者はAIフィードバックを受け取れない
     - `[courseId]/submissions/` — F07用。教師が全学習者の提出物(F06)とAIフィードバックを
       一覧で確認し、`updateFeedbackAction`でフィードバックの文面(良い点/次に考える問い/
-      参照すべき資料の箇所)を修正できる(要件定義書7章「教師は…確認、修正できる」)
+      参照すべき資料の箇所)を修正できる(要件定義書7章「教師は…確認、修正できる」)。
+      F08の振り返りのうち`shared_with_teacher=true`のものだけをクエリ時点で絞り込んで
+      あわせて表示する(共有していない振り返りはこのクエリに含めない。UI側で隠すのではなく
+      サーバー側で境界を作る)
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
 - `src/lib/courses/ownership.ts` — `assertOwnsCourse()`: 教師が自分の授業を操作しているかの
   確認(RLS未整備な段階1のアプリ側ガード)。`courses/[courseId]/`配下の複数のactions.tsから共用
@@ -152,6 +159,8 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
   - `0006_submissions.sql` — F06用。学習者の「成果」を保存する`submissions`テーブルを追加
   - `0007_feedback.sql` — F07用。`evaluation_criteria`(観点)・`submission_feedback`
     (観点ごとのAIフィードバック)テーブルと、`submissions.feedback_status`/`feedback_error`を追加
+  - `0008_reflections.sql` — F08用。学習者の振り返り(学んだこと/迷ったこと/次にやりたいこと)を
+    保存する`reflections`テーブルを追加。`shared_with_teacher`で教師への共有可否を選べる
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

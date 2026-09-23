@@ -22,6 +22,13 @@ interface FeedbackRow {
   material_reference: string;
 }
 
+interface ReflectionRow {
+  submission_id: string;
+  what_learned: string;
+  what_confused: string;
+  next_goal: string;
+}
+
 const inputClassName =
   "w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-900";
 
@@ -52,6 +59,7 @@ export default async function SubmissionsReviewPage({
 
   const studentNames = new Map<string, string>();
   const feedbackBySubmission = new Map<string, FeedbackRow[]>();
+  const reflectionBySubmission = new Map<string, ReflectionRow>();
 
   if (submissions.length > 0) {
     const studentIds = [...new Set(submissions.map((s) => s.student_id))];
@@ -75,6 +83,20 @@ export default async function SubmissionsReviewPage({
       list.push(row);
       feedbackBySubmission.set(row.submission_id, list);
     }
+
+    // F08: 学習者が「教師に共有する」を選んだ振り返りだけを見せる
+    // (共有していない振り返りはこのクエリの時点で除外し、サーバー側で境界を守る)。
+    const { data: reflectionRows } = await admin
+      .from("reflections")
+      .select("submission_id, what_learned, what_confused, next_goal")
+      .eq("shared_with_teacher", true)
+      .in(
+        "submission_id",
+        submissions.map((s) => s.id),
+      );
+    for (const row of (reflectionRows ?? []) as ReflectionRow[]) {
+      reflectionBySubmission.set(row.submission_id, row);
+    }
   }
 
   return (
@@ -92,6 +114,7 @@ export default async function SubmissionsReviewPage({
       <ul className="mt-8 space-y-4">
         {submissions.map((submission) => {
           const feedbackItems = feedbackBySubmission.get(submission.id) ?? [];
+          const reflection = reflectionBySubmission.get(submission.id);
           return (
             <li
               key={submission.id}
@@ -157,6 +180,26 @@ export default async function SubmissionsReviewPage({
                       </form>
                     );
                   })}
+                </div>
+              )}
+
+              {reflection && (
+                <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 text-xs dark:border-zinc-800">
+                  <p className="font-medium text-zinc-700 dark:text-zinc-300">
+                    振り返り(学習者が共有)
+                  </p>
+                  <p>
+                    <span className="text-zinc-500">学んだこと: </span>
+                    {reflection.what_learned}
+                  </p>
+                  <p>
+                    <span className="text-zinc-500">迷ったこと: </span>
+                    {reflection.what_confused}
+                  </p>
+                  <p>
+                    <span className="text-zinc-500">次にやりたいこと: </span>
+                    {reflection.next_goal}
+                  </p>
                 </div>
               )}
             </li>

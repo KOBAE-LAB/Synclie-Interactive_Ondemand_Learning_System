@@ -1,7 +1,13 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
-import { sendMessageAction, submitOutcomeAction, generateFeedbackAction } from "./actions";
+import {
+  sendMessageAction,
+  submitOutcomeAction,
+  generateFeedbackAction,
+  saveReflectionAction,
+} from "./actions";
 
 interface DialogueTurnRow {
   id: string;
@@ -35,6 +41,14 @@ const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
   done: "生成済み",
   failed: "失敗",
 };
+
+interface ReflectionRow {
+  submission_id: string;
+  what_learned: string;
+  what_confused: string;
+  next_goal: string;
+  shared_with_teacher: boolean;
+}
 
 export default async function LearnCourseSessionPage({
   params,
@@ -115,6 +129,20 @@ export default async function LearnCourseSessionPage({
     }
   }
 
+  const reflectionBySubmission = new Map<string, ReflectionRow>();
+  if (submissions.length > 0) {
+    const { data: reflectionRows } = await admin
+      .from("reflections")
+      .select("submission_id, what_learned, what_confused, next_goal, shared_with_teacher")
+      .in(
+        "submission_id",
+        submissions.map((s) => s.id),
+      );
+    for (const row of (reflectionRows ?? []) as ReflectionRow[]) {
+      reflectionBySubmission.set(row.submission_id, row);
+    }
+  }
+
   const boundSendAction = sendMessageAction.bind(null, courseId);
   const boundSubmitOutcomeAction = submitOutcomeAction.bind(null, courseId);
 
@@ -122,6 +150,12 @@ export default async function LearnCourseSessionPage({
     <div className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">{course.title}</h1>
       {course.subject && <p className="mt-1 text-sm text-zinc-500">{course.subject}</p>}
+      <Link
+        href={`/learn/${courseId}/portfolio`}
+        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+      >
+        ポートフォリオを見る(F08)→
+      </Link>
 
       {(!activePersonaCount || activePersonaCount === 0) && (
         <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
@@ -202,7 +236,13 @@ export default async function LearnCourseSessionPage({
                 courseId,
                 submission.id,
               );
+              const boundSaveReflectionAction = saveReflectionAction.bind(
+                null,
+                courseId,
+                submission.id,
+              );
               const feedbackItems = feedbackBySubmission.get(submission.id) ?? [];
+              const reflection = reflectionBySubmission.get(submission.id);
 
               return (
                 <li
@@ -255,6 +295,54 @@ export default async function LearnCourseSessionPage({
                           </p>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {submission.feedback_status === "done" && (
+                    <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                      <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        振り返り(F08){reflection && " (記入済み・編集できます)"}
+                      </p>
+                      <form action={boundSaveReflectionAction} className="mt-2 space-y-2">
+                        <textarea
+                          name="whatLearned"
+                          required
+                          rows={2}
+                          placeholder="学んだこと"
+                          defaultValue={reflection?.what_learned}
+                          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                        <textarea
+                          name="whatConfused"
+                          required
+                          rows={2}
+                          placeholder="迷ったこと"
+                          defaultValue={reflection?.what_confused}
+                          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                        <textarea
+                          name="nextGoal"
+                          required
+                          rows={2}
+                          placeholder="次にやりたいこと"
+                          defaultValue={reflection?.next_goal}
+                          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                        <label className="flex items-center gap-2 text-xs text-zinc-500">
+                          <input
+                            type="checkbox"
+                            name="sharedWithTeacher"
+                            defaultChecked={reflection?.shared_with_teacher}
+                          />
+                          教師に共有する
+                        </label>
+                        <button
+                          type="submit"
+                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        >
+                          {reflection ? "更新する" : "振り返りを保存"}
+                        </button>
+                      </form>
                     </div>
                   )}
                 </li>

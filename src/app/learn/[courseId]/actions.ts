@@ -229,6 +229,49 @@ export async function submitOutcomeAction(courseId: string, formData: FormData) 
   revalidatePath(`/learn/${courseId}`);
 }
 
+// F08: 振り返り。AIフィードバック(F07)を読んだうえで、学んだこと・迷ったこと・
+// 次にやりたいことを記述する。1提出物につき1件(再提出時は上書き)。
+export async function saveReflectionAction(courseId: string, submissionId: string, formData: FormData) {
+  const { user } = await requireRole("student");
+  const admin = createAdminClient();
+
+  const { data: submission } = await admin
+    .from("submissions")
+    .select("id, course_id, student_id")
+    .eq("id", submissionId)
+    .maybeSingle();
+  if (!submission || submission.course_id !== courseId || submission.student_id !== user.id) {
+    throw new Error("成果が見つかりません。");
+  }
+
+  const whatLearned = String(formData.get("whatLearned") ?? "").trim();
+  const whatConfused = String(formData.get("whatConfused") ?? "").trim();
+  const nextGoal = String(formData.get("nextGoal") ?? "").trim();
+  if (!whatLearned || !whatConfused || !nextGoal) {
+    throw new Error("学んだこと・迷ったこと・次にやりたいことを、すべて入力してください。");
+  }
+  const sharedWithTeacher = formData.get("sharedWithTeacher") === "on";
+
+  const { error } = await admin.from("reflections").upsert(
+    {
+      submission_id: submissionId,
+      student_id: user.id,
+      what_learned: whatLearned,
+      what_confused: whatConfused,
+      next_goal: nextGoal,
+      shared_with_teacher: sharedWithTeacher,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "submission_id" },
+  );
+  if (error) {
+    throw new Error(`振り返りの保存に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/learn/${courseId}`);
+  revalidatePath(`/learn/${courseId}/portfolio`);
+}
+
 // F07: F06の提出物(成果)に対して、教師が設定した観点(evaluation_criteria)ごとに
 // AIフィードバック(良い点・次に考える問い・参照すべき資料の箇所)を生成する。
 // 再生成時は既存の submission_feedback を削除してから作り直す(F02と同じidempotentな方針)。
