@@ -188,3 +188,42 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
 
   revalidatePath(`/learn/${courseId}`);
 }
+
+// F06: テキスト入力(タイピングによる意見・成果の入力)。
+// dialogue_turns(逐次のやり取り、F05)とは別に、議論を経て学習者がまとめた
+// 「成果」そのものを submissions に保存する。F07(AIフィードバック)・F08(振り返り)は
+// この成果を参照する想定。
+export async function submitOutcomeAction(courseId: string, formData: FormData) {
+  const { user } = await requireRole("student");
+
+  const content = String(formData.get("content") ?? "").trim();
+  if (!content) {
+    throw new Error("成果の内容を入力してください。");
+  }
+
+  const admin = createAdminClient();
+
+  const { data: course } = await admin
+    .from("courses")
+    .select("id")
+    .eq("id", courseId)
+    .maybeSingle();
+  if (!course) {
+    throw new Error("授業が見つかりません。");
+  }
+
+  const sessionId = await getOrCreateSession(admin, courseId, user.id);
+
+  const { error } = await admin.from("submissions").insert({
+    course_id: courseId,
+    student_id: user.id,
+    session_id: sessionId,
+    kind: "text",
+    content,
+  });
+  if (error) {
+    throw new Error(`成果の提出に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/learn/${courseId}`);
+}

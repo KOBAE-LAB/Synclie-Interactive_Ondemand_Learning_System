@@ -100,7 +100,11 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     (1)学習者発言を保存 → (2)F04で`active`にした擬似メンバーの中から発言が少ない順に1体選ぶ
     (`pickRespondingPersona`、複数体いる場合の簡易な話者調整) → (3)`src/lib/rag/search.ts`で
     授業RAG(F02の`material_chunks`)から関連チャンクを検索 → (4)`src/lib/ai/persona.ts`の
-    `askPersona`で発言を生成 → (5)保存、の順で処理する
+    `askPersona`で発言を生成 → (5)保存、の順で処理する。
+    同じページの下段にF06(テキスト入力)の「成果を提出する」フォームがある
+    (`submitOutcomeAction`)。`dialogue_turns`(逐次のやり取り)とは別に、議論を経て
+    まとめた「成果」を`submissions`テーブルに保存する。F07(AIフィードバック)・
+    F08(振り返りとポートフォリオ)はこの`submissions`を参照する想定
   - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成し、
     `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
@@ -135,6 +139,7 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     チャンクだけ削除・作り直しできるようにする)。`course_materials.rag_error`も追加
   - `0004_persona_approval.sql` — F04用。`personas.status`(`draft`/`approved`/`active`)を追加
   - `0005_persona_dialogue.sql` — F05用。`match_material_chunks` RPC(授業RAGのベクトル検索)を追加
+  - `0006_submissions.sql` — F06用。学習者の「成果」を保存する`submissions`テーブルを追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

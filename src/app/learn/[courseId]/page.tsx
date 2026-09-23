@@ -1,13 +1,19 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
-import { sendMessageAction } from "./actions";
+import { sendMessageAction, submitOutcomeAction } from "./actions";
 
 interface DialogueTurnRow {
   id: string;
   speaker_type: "student" | "persona";
   persona_id: string | null;
   content: string;
+}
+
+interface SubmissionRow {
+  id: string;
+  content: string;
+  created_at: string;
 }
 
 export default async function LearnCourseSessionPage({
@@ -65,7 +71,16 @@ export default async function LearnCourseSessionPage({
     .eq("course_id", courseId)
     .eq("status", "active");
 
+  const { data: submissionRows } = await admin
+    .from("submissions")
+    .select("id, content, created_at")
+    .eq("course_id", courseId)
+    .eq("student_id", user.id)
+    .order("created_at", { ascending: false });
+  const submissions = (submissionRows ?? []) as SubmissionRow[];
+
   const boundSendAction = sendMessageAction.bind(null, courseId);
+  const boundSubmitOutcomeAction = submitOutcomeAction.bind(null, courseId);
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -118,6 +133,47 @@ export default async function LearnCourseSessionPage({
           送信
         </button>
       </form>
+
+      <div className="mt-12 border-t border-zinc-200 pt-8 dark:border-zinc-800">
+        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          成果を提出する(F06)
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          擬似メンバーとの議論をふまえて、自分の考えをまとめて提出しましょう。
+        </p>
+
+        <form action={boundSubmitOutcomeAction} className="mt-4 space-y-3">
+          <textarea
+            name="content"
+            required
+            rows={4}
+            placeholder="議論をふまえた自分の考えをまとめて書く"
+            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          >
+            提出する
+          </button>
+        </form>
+
+        {submissions.length > 0 && (
+          <ul className="mt-6 space-y-2">
+            {submissions.map((submission) => (
+              <li
+                key={submission.id}
+                className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              >
+                <p className="whitespace-pre-wrap">{submission.content}</p>
+                <p className="mt-2 text-xs text-zinc-400">
+                  {new Date(submission.created_at).toLocaleString("ja-JP")}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
