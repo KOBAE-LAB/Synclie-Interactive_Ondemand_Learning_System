@@ -16,7 +16,8 @@ export async function loginAction(
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/courses",
+      // ロールごとの行き先はトップページ(/)でまとめて振り分ける(教師→/courses、学習者→/learn)。
+      redirectTo: "/",
     });
   } catch (error) {
     if (error instanceof AuthError) {

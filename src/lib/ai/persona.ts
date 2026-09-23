@@ -19,6 +19,9 @@ export interface PersonaProfile {
   tone: string;
   stance: string;
   materialText: string;
+  // F03/F04で教師が設定した、このペルソナ固有の行動ルール(発言頻度、教える度合い、介入の条件など)。
+  // 未設定なら省略可(COMMON_GUARDRAILSのみが適用される)。
+  behaviorNotes?: string;
 }
 
 export const COMMON_GUARDRAILS = `
@@ -45,7 +48,7 @@ ${persona.materialText}
 
 # 立場と目標
 ${persona.stance}
-${COMMON_GUARDRAILS}`;
+${persona.behaviorNotes ? `\n# このペルソナ固有の行動ルール\n${persona.behaviorNotes}\n` : ""}${COMMON_GUARDRAILS}`;
 }
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };

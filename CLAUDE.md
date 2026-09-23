@@ -88,7 +88,19 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
 ## 8. リポジトリ構成
 
 - `src/app/` — Next.js App Router のページ・APIルート
+  - `src/app/page.tsx` — ログイン後の行き先をロールで振り分ける(教師→`/courses`、
+    学習者→`/learn`)。`login/actions.ts`の`loginAction`は`redirectTo: "/"`固定にしてあり、
+    ロールごとの分岐はここに集約している
   - `src/app/login/` — 段階1の簡易ログイン画面(メール+パスワード)
+  - `src/app/learn/` — F05(擬似メンバー対話)。学習者向け。`page.tsx`は全授業の一覧
+    (段階1には受講登録の仕組みがまだ無いため、ログイン中の学習者に全授業を見せる簡易実装。
+    本番投入前に受講登録ベースの絞り込みが必要)。`[courseId]/page.tsx`が実際のチャット画面。
+    学習者ごとに1つの進行中セッション(`learning_sessions`, `ended_at is null`)を
+    get-or-createし、発言のたびに`actions.ts`の`sendMessageAction`が
+    (1)学習者発言を保存 → (2)F04で`active`にした擬似メンバーの中から発言が少ない順に1体選ぶ
+    (`pickRespondingPersona`、複数体いる場合の簡易な話者調整) → (3)`src/lib/rag/search.ts`で
+    授業RAG(F02の`material_chunks`)から関連チャンクを検索 → (4)`src/lib/ai/persona.ts`の
+    `askPersona`で発言を生成 → (5)保存、の順で処理する
   - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成し、
     `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
@@ -108,7 +120,10 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
   `material_chunks`保存までの一連の処理。失敗時は`course_materials.rag_status='failed'`
-  + `rag_error`に理由を記録し、教師が「再生成」できるようにする)
+  + `rag_error`に理由を記録し、教師が「再生成」できるようにする)。
+  `search.ts`はF05用: 学習者の発言を埋め込み、`match_material_chunks`(Postgres RPC、
+  `0005_persona_dialogue.sql`)でコサイン類似度検索する
+  (supabase-jsだけではベクトル距離の並び替えを書けないためDB関数にした)
 - `src/lib/auth/` — パスワードハッシュ(`password.ts`)、ロール確認ヘルパー(`session.ts`)
 - `src/auth.ts` — Auth.js設定(段階1: Credentialsプロバイダー。profiles.email / password_hash を照合)
 - `supabase/migrations/` — DBスキーマ
@@ -119,6 +134,7 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     `char_count`を追加(どの資料の何番目のチャンクかを追跡し、再生成時に該当資料の
     チャンクだけ削除・作り直しできるようにする)。`course_materials.rag_error`も追加
   - `0004_persona_approval.sql` — F04用。`personas.status`(`draft`/`approved`/`active`)を追加
+  - `0005_persona_dialogue.sql` — F05用。`match_material_chunks` RPC(授業RAGのベクトル検索)を追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
@@ -136,6 +152,9 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
 - 段階1のCredentials認証は自前のパスワードハッシュ(bcrypt)を`profiles`に保存する方式。
   段階2でSSO(F22)に移行する際、`password_hash`列はそのまま残しつつ、
   SSOプロバイダーのsubject idを別途キーとして使う設計にする(要件定義書6章・12章参照)。
+- 受講登録(どの学習者がどの授業に属するか)の仕組みがまだ無い。`src/app/learn/page.tsx`は
+  ログイン中の学習者に全授業を一覧表示している。本番投入前に受講登録テーブルを追加し、
+  学習者ごとに所属する授業だけを見せるようにすること。
 
 ## 9. 開発の進め方
 

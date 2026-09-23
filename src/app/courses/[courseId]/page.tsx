@@ -80,8 +80,15 @@ export default async function CourseDetailPage({
         href={`/courses/${courseId}/personas`}
         className="mt-4 inline-block text-sm text-zinc-500 hover:underline"
       >
-        ペルソナ設定(F03)→
+        ペルソナ設定(F03/F04)→
       </Link>
+      <p className="mt-1 text-sm text-zinc-500">
+        学習者ビュー(F05): 生徒アカウントでログインし
+        <Link href={`/learn/${courseId}`} className="mx-1 hover:underline">
+          /learn/{courseId}
+        </Link>
+        を開くと擬似メンバーと議論できる
+      </p>
 
       <form
         action={boundUploadAction}
