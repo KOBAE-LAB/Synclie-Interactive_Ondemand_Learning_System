@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
+import { requireConsent } from "@/lib/consent";
 
 // F05: 学習者向けの授業一覧。段階1にはまだ受講登録(どの学習者がどの授業に属するか)の
 // 仕組みがないため、ログイン中の学習者には全授業を一覧表示する
@@ -9,6 +10,8 @@ export default async function LearnCoursesPage() {
   const { user } = await requireRole("student");
 
   const admin = createAdminClient();
+  await requireConsent(admin, user.id);
+
   const { data: courses } = await admin
     .from("courses")
     .select("id, title, subject")
@@ -18,6 +21,9 @@ export default async function LearnCoursesPage() {
     <div className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">授業一覧</h1>
       <p className="mt-1 text-sm text-zinc-500">{user.name ?? user.email} さん</p>
+      <Link href="/learn/data" className="mt-1 inline-block text-sm text-zinc-500 hover:underline">
+        自分のデータ(F16)→
+      </Link>
 
       <ul className="mt-8 space-y-2">
         {(courses ?? []).map((course) => (

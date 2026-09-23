@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
+import { requireConsent } from "@/lib/consent";
 
 // F08: ポートフォリオ。成果物・フィードバック・振り返りを時系列で並べ、
 // 学習者本人がいつでも見返せるようにする(要件定義書7章)。読み取り専用。
@@ -38,6 +39,8 @@ export default async function PortfolioPage({
   const { user } = await requireRole("student");
 
   const admin = createAdminClient();
+  await requireConsent(admin, user.id);
+
   const { data: course } = await admin
     .from("courses")
     .select("id, title")

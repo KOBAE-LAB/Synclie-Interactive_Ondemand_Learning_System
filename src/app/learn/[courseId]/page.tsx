@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
+import { requireConsent } from "@/lib/consent";
 import {
   sendMessageAction,
   submitOutcomeAction,
@@ -59,6 +60,8 @@ export default async function LearnCourseSessionPage({
   const { user } = await requireRole("student");
 
   const admin = createAdminClient();
+  await requireConsent(admin, user.id);
+
   const { data: course } = await admin
     .from("courses")
     .select("id, title, subject")

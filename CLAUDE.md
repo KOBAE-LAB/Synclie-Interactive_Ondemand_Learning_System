@@ -92,6 +92,13 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     学習者→`/learn`)。`login/actions.ts`の`loginAction`は`redirectTo: "/"`固定にしてあり、
     ロールごとの分岐はここに集約している
   - `src/app/login/` — 段階1の簡易ログイン画面(メール+パスワード)
+  - `src/app/consent/` — F16(同意・データ管理)。学習者が同意していない/撤回済みの場合、
+    `src/lib/consent.ts`の`requireConsent()`がここへリダイレクトする
+    (`/learn`, `/learn/[courseId]`, `/learn/[courseId]/portfolio`から呼んでいる)。
+    同意すると`consent_records`に記録され`/learn`に戻る
+  - `src/app/learn/data/` — F16用。学習者が自分の同意状況の確認・撤回(利用停止)、
+    保存データ件数の確認、全データ削除(`deleteMyDataAction`。ログインアカウント自体は
+    残す)ができる。同意状況に関わらずアクセスできる(撤回中でもここは使える)
   - `src/app/learn/` — F05(擬似メンバー対話)。学習者向け。`page.tsx`は全授業の一覧
     (段階1には受講登録の仕組みがまだ無いため、ログイン中の学習者に全授業を見せる簡易実装。
     本番投入前に受講登録ベースの絞り込みが必要)。`[courseId]/page.tsx`が実際のチャット画面。
@@ -140,6 +147,8 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
 - `src/lib/courses/ownership.ts` — `assertOwnsCourse()`: 教師が自分の授業を操作しているかの
   確認(RLS未整備な段階1のアプリ側ガード)。`courses/[courseId]/`配下の複数のactions.tsから共用
+- `src/lib/consent.ts` — F16。`requireConsent()`: 同意していない/撤回済みの学習者を
+  `/consent`へリダイレクトする(`learn/`配下の各ページから呼ぶ)
 - `src/lib/ai/` — ペルソナ対話(`persona.ts`)、論証評価(`argument-evaluation.ts`)、
   観点別AIフィードバック(`feedback.ts`、F07。`argument-evaluation.ts`とは別物:
   こちらは点数を返さず、教師が設定した観点ごとの助言を構造化出力で返す)、
@@ -169,6 +178,8 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     保存する`reflections`テーブルを追加。`shared_with_teacher`で教師への共有可否を選べる
   - `0009_student_profiles.sql` — F09用。学習者プロファイル(得意な点/課題/学習履歴の要約)を
     学習者×授業単位で保存する`student_profiles`テーブルを追加
+  - `0010_consent.sql` — F16用。学習者の同意状況を保存する`consent_records`テーブルを追加
+    (学習者1人1行。撤回は`withdrawn_at`を立てるだけで、再同意すれば使い直せる)
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
