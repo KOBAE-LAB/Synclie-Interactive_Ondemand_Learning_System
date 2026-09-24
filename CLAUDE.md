@@ -213,6 +213,13 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     - `[courseId]/conformity/` — F20用。ペルソナ別の「根拠なく同調した割合」
       (`unwarranted_conformity`)を集計し、フラグが立った発言を一覧表示する読み取り専用画面
       (詳細は5章「論証評価」共有コンポーネント参照)
+    - `[courseId]/audit/` — F15(挙動の監査と修正)。「擬似メンバーの発言ログを確認し、
+      不適切・不正確な挙動を修正する」(要件定義書4章)。この授業の擬似メンバーの発言
+      (`dialogue_turns`, `speaker_type='persona'`)を、直前の学習者発言(文脈)とあわせて
+      一覧表示し、`updateTurnAction`で内容を直接修正できる(F07の`updateFeedbackAction`と
+      同じ「新しい監査テーブルは作らず、対象の行に直接書き込む」方針。`dialogue_turns`に
+      `flagged_by_teacher`・`teacher_note`を追加)。修正後の内容は以後の対話でLLMに渡す
+      直近履歴としてもそのまま使われるため、訂正すれば同じ誤りの再発も防げる
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
 - `src/lib/courses/ownership.ts` — `assertOwnsCourse()`: 教師が自分の授業を操作しているかの
   確認(RLS未整備な段階1のアプリ側ガード)。`courses/[courseId]/`配下の複数のactions.tsから共用
@@ -271,6 +278,8 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     文字起こし結果を確認・修正してから送信するまでの一時テーブル`audio_uploads`
     (`status`: transcribing/ready/failed/confirmed)を追加。`dialogue_turns.image_path`は
     手書き専用の名前だったため、音声の元データパスも持たせられるよう`source_path`に改名
+  - `0016_persona_audit.sql` — F15用。`dialogue_turns`に`flagged_by_teacher`・
+    `teacher_note`を追加し、教師が擬似メンバーの発言を確認・修正した状態を直接持たせる
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

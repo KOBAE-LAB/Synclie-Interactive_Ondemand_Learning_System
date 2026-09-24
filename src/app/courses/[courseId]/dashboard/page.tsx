@@ -272,6 +272,13 @@ export default async function CourseDashboardPage({
       >
         発言単位の詳細を見る(F20)→
       </Link>
+      <br />
+      <Link
+        href={`/courses/${courseId}/audit`}
+        className="mt-1 inline-block text-xs text-zinc-500 hover:underline"
+      >
+        発言を確認・修正する(F15)→
+      </Link>
     </div>
   );
 }
