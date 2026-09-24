@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { assertOwnsCourse } from "@/lib/courses/ownership";
 import { generateStudentProfileSummary } from "@/lib/ai/student-profile";
+import { generatePersonalizationSuggestions } from "@/lib/ai/personalization";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -113,6 +114,75 @@ export async function generateStudentProfileAction(courseId: string, studentId: 
       { student_id: studentId, course_id: courseId, status: "failed", error: message },
       { onConflict: "student_id,course_id" },
     );
+  }
+
+  revalidatePath(`/courses/${courseId}/students`);
+}
+
+// F11: 個別最適化支援。F09の学習者プロファイルを入力に、4種類の支援案を生成する。
+// プロファイルが無ければ先にF09で生成してもらう(個別最適化はプロファイルの要約に基づくため)。
+export async function generatePersonalizationAction(courseId: string, studentId: string) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+
+  const { data: profile } = await admin
+    .from("student_profiles")
+    .select("strengths, challenges, summary, status")
+    .eq("student_id", studentId)
+    .eq("course_id", courseId)
+    .maybeSingle();
+
+  if (!profile || profile.status !== "done" || !profile.strengths || !profile.challenges || !profile.summary) {
+    throw new Error("先に学習者プロファイル(F09)を生成してください。");
+  }
+
+  const suggestion = await generatePersonalizationSuggestions({
+    strengths: profile.strengths,
+    challenges: profile.challenges,
+    summary: profile.summary,
+  });
+
+  const { error } = await admin.from("personalization_suggestions").upsert(
+    {
+      student_id: studentId,
+      course_id: courseId,
+      avoid_misconception_question: suggestion.avoidMisconceptionQuestion,
+      inquiry_theme_suggestion: suggestion.inquiryThemeSuggestion,
+      prompting_adjustment: suggestion.promptingAdjustment,
+      difficulty_adjustment: suggestion.difficultyAdjustment,
+      status: "suggested",
+      generated_at: new Date().toISOString(),
+      decided_at: null,
+    },
+    { onConflict: "student_id,course_id" },
+  );
+  if (error) {
+    throw new Error(`個別最適化の提案の保存に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/courses/${courseId}/students`);
+}
+
+// F11: 教師が提案を採用/見送りを決める
+// (「受け入れるかどうかは学習者と教師が決める」要件定義書7章)。
+// 採用されたものだけがF05の対話生成(turnGuidance)に反映される。
+export async function decidePersonalizationAction(
+  courseId: string,
+  studentId: string,
+  decision: "accepted" | "declined",
+) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+
+  const { error } = await admin
+    .from("personalization_suggestions")
+    .update({ status: decision, decided_at: new Date().toISOString() })
+    .eq("student_id", studentId)
+    .eq("course_id", courseId);
+  if (error) {
+    throw new Error(`更新に失敗しました: ${error.message}`);
   }
 
   revalidatePath(`/courses/${courseId}/students`);

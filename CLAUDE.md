@@ -156,12 +156,18 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
       F08の振り返りのうち`shared_with_teacher=true`のものだけをクエリ時点で絞り込んで
       あわせて表示する(共有していない振り返りはこのクエリに含めない。UI側で隠すのではなく
       サーバー側で境界を作る)
-    - `[courseId]/students/` — F09用(学習データ蓄積のうち学習者プロファイル)。
+    - `[courseId]/students/` — F09(学習データ蓄積のうち学習者プロファイル)+F11(個別最適化支援)。
       この授業で提出物がある学習者ごとに、蓄積した成果・フィードバック・振り返り(F06〜F08)を
       1本のテキストに束ねて`src/lib/ai/student-profile.ts`に渡し、得意な点・課題・
       学習履歴の要約を生成する(`generateStudentProfileAction`、`student_profiles`に保存)。
-      段階2のF11(個別最適化支援)がこのプロファイルを読む想定。自動生成はせず、
-      呼び出し回数を絞るため教師が明示的に押したときだけ生成する
+      自動生成はせず、呼び出し回数を絞るため教師が明示的に押したときだけ生成する。
+      F09のプロファイルが生成済み(`status='done'`)であれば、続けて「提案を生成する」で
+      F11の4種類の提案(同じ誤解を避ける問い/探究テーマ/促し方の調整/難度・足場かけの調整、
+      `src/lib/ai/personalization.ts`)を生成できる(`personalization_suggestions`に保存)。
+      「AIが学習内容や評価を一方的に固定しない」(要件定義書7章)ため、教師が「採用する」を
+      押すまで対話には反映されない(`status`: suggested→accepted/declined)。採用後は
+      `src/app/learn/[courseId]/actions.ts`の`sendMessageAction`が、促し方・難度・誤解回避の
+      問いをそのペルソナのturnGuidanceに追加し、探究テーマの提案は学習者の対話画面にも表示する
     - `[courseId]/conformity/` — F20用。ペルソナ別の「根拠なく同調した割合」
       (`unwarranted_conformity`)を集計し、フラグが立った発言を一覧表示する読み取り専用画面
       (詳細は5章「論証評価」共有コンポーネント参照)
@@ -175,7 +181,7 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
   こちらは点数を返さず、教師が設定した観点ごとの助言を構造化出力で返す)、
   学習者プロファイル要約(`student-profile.ts`、F09)、
   学習進化型ペルソナの抽出・役割分類(`evolved-persona.ts`、F10)、
-  OpenAIクライアント(`openai.ts`)
+  個別最適化の提案生成(`personalization.ts`、F11)、OpenAIクライアント(`openai.ts`)
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
   `material_chunks`保存までの一連の処理。失敗時は`course_materials.rag_status='failed'`
@@ -207,6 +213,9 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     (非正規化、ペルソナ単位の集計用)・`persona_conceded`・`unwarranted_conformity`を追加
   - `0012_evolved_personas.sql` — F10用。抽出結果(論点/誤概念/有効な問い)を保存する
     `learner_corpus_entries`テーブルと、`personas.origin_note`(生成理由の説明文)を追加
+  - `0013_personalization.sql` — F11用。個別最適化の提案(同じ誤解を避ける問い/探究テーマ/
+    促し方/難度・足場かけ)を保存する`personalization_suggestions`テーブルを追加。
+    `status`(suggested/accepted/declined)で採用可否を管理する
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

@@ -108,6 +108,16 @@ export default async function LearnCourseSessionPage({
     .eq("course_id", courseId)
     .eq("status", "active");
 
+  // F11: 教師が採用した個別最適化の提案のうち、探究テーマの提案だけは学習者にも見せる
+  // (促し方・難度の調整は対話生成側にだけ反映し、学習者には裏側の調整として見せない)。
+  const { data: personalization } = await admin
+    .from("personalization_suggestions")
+    .select("inquiry_theme_suggestion")
+    .eq("student_id", user.id)
+    .eq("course_id", courseId)
+    .eq("status", "accepted")
+    .maybeSingle();
+
   const { data: submissionRows } = await admin
     .from("submissions")
     .select("id, content, created_at, feedback_status, feedback_error")
@@ -159,6 +169,12 @@ export default async function LearnCourseSessionPage({
       >
         ポートフォリオを見る(F08)→
       </Link>
+
+      {personalization && (
+        <p className="mt-4 rounded-md border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200">
+          おすすめの探究テーマ(F11): {personalization.inquiry_theme_suggestion}
+        </p>
+      )}
 
       {(!activePersonaCount || activePersonaCount === 0) && (
         <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">

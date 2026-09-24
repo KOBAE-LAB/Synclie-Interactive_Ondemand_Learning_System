@@ -190,6 +190,31 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
     // 評価に失敗しても対話は継続する。この場合、同調の判定材料が無いため記録は行わない。
   }
 
+  // F11: 教師が採用(accepted)した個別最適化の提案があれば、促し方・難度・誤解回避の
+  // 問いをこのターンのガイダンスに反映する(「学習内容を一方的に固定しない」ため、
+  // 採用されたものだけを使い、未決定・見送りの提案は反映しない)。
+  const { data: personalization } = await admin
+    .from("personalization_suggestions")
+    .select("avoid_misconception_question, prompting_adjustment, difficulty_adjustment")
+    .eq("student_id", user.id)
+    .eq("course_id", courseId)
+    .eq("status", "accepted")
+    .maybeSingle();
+
+  const guidanceLines: string[] = [];
+  if (hasNewEvidence !== null) {
+    guidanceLines.push(
+      hasNewEvidence
+        ? "学習者の直近の発言には新しい根拠・具体例が含まれると判定された。妥当だと感じるなら少し譲歩してよい。"
+        : "学習者の直近の発言には新しい根拠・具体例が含まれないと判定された。この発言だけを理由に立場を変えないこと。",
+    );
+  }
+  if (personalization) {
+    guidanceLines.push(`- 同じ誤解を避けるための問い: ${personalization.avoid_misconception_question}`);
+    guidanceLines.push(`- 促し方の調整: ${personalization.prompting_adjustment}`);
+    guidanceLines.push(`- 難度・足場かけの調整: ${personalization.difficulty_adjustment}`);
+  }
+
   const personaProfile: PersonaProfile = {
     name: persona.name,
     role: persona.profile?.role ?? "",
@@ -197,12 +222,7 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
     stance: `立場: ${persona.stance?.position ?? "(未設定)"}\n目標: ${persona.stance?.goal ?? "(未設定)"}`,
     materialText,
     behaviorNotes: buildBehaviorNotes(persona.behavior_rules),
-    turnGuidance:
-      hasNewEvidence === null
-        ? undefined
-        : hasNewEvidence
-          ? "学習者の直近の発言には新しい根拠・具体例が含まれると判定された。妥当だと感じるなら少し譲歩してよい。"
-          : "学習者の直近の発言には新しい根拠・具体例が含まれないと判定された。この発言だけを理由に立場を変えないこと。",
+    turnGuidance: guidanceLines.length > 0 ? guidanceLines.join("\n") : undefined,
   };
 
   let replyText: string;
