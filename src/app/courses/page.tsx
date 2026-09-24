@@ -9,9 +9,14 @@ export default async function CoursesPage() {
   const admin = createAdminClient();
   const { data: courses } = await admin
     .from("courses")
-    .select("id, title, subject, created_at")
+    .select("id, title, subject, mode, created_at")
     .eq("owner_teacher_id", user.id)
     .order("created_at", { ascending: false });
+
+  const MODE_LABELS: Record<string, string> = {
+    group: "グループワーク",
+    solo_study: "独習(F19)",
+  };
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -36,6 +41,14 @@ export default async function CoursesPage() {
           placeholder="教科(任意)"
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
+        <select
+          name="mode"
+          defaultValue="group"
+          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          <option value="group">グループワーク(複数の学習者、対立するペルソナと議論)</option>
+          <option value="solo_study">独習(F19。「まだ分からない仲間」役のペルソナに説明する)</option>
+        </select>
         <button
           type="submit"
           className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
@@ -55,6 +68,7 @@ export default async function CoursesPage() {
               {course.subject && (
                 <span className="ml-2 text-zinc-500">({course.subject})</span>
               )}
+              <span className="ml-2 text-xs text-zinc-400">[{MODE_LABELS[course.mode] ?? course.mode}]</span>
             </Link>
           </li>
         ))}

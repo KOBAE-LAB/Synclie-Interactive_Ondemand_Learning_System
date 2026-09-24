@@ -46,7 +46,9 @@
 詳細は要件定義書4章の表を参照。特に重要なもの:
 
 - **F14 教師ダッシュボード**(必須): 学習状況の確認 + 指導計画に紐づく
-- **F19 独習モード**(段階2, GWが最優先でMVP、独習は2番目)
+- **F19 独習モード**(段階2, GWが最優先でMVP、独習は2番目)。実装済み: `courses.mode`
+  (`group`/`solo_study`)を教師が授業作成時に選ぶだけで、対話機構自体(F02〜F05)は
+  そのまま使い回す。詳細は8章の`src/app/courses/`の説明を参照
 - **F20 ペルソナ設計と同調の計測**: 「論証評価」ロジックでペルソナの意見変更を判定
 - **F21 教員協働のペルソナ・教材ライブラリ共有**(必須/段階2): 同一組織はSSOで自動承認、
   組織を跨ぐ共有はアプリ側の承認者フローが別途必要(SSOだけでは判定できない)
@@ -156,10 +158,20 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     `dialogue_turns.image_path`という手書き専用の列名だったが、F13で音声にも同じ列を
     使うため`source_path`に改名した(`postStudentMessageAndRespond`の引数も
     `imagePath`→`sourcePath`)
-  - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成し、
-    `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
+  - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成する時、
+    `mode`(`group`=グループワーク/`solo_study`=独習、F19)も選ぶ
+    (`courses.mode`、既定は`group`)。`[courseId]/` で資料
+    (PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
-    (`actions.ts` の `generateMaterialRagAction` / `generateAllPendingRagAction`)
+    (`actions.ts` の `generateMaterialRagAction` / `generateAllPendingRagAction`)。
+    F19(独習モード)は新しい対話機構を作らず、既存のF02〜F05をそのまま使い回す設計:
+    授業(=シナリオCの「単元」に相当する粒度)が`solo_study`なら、
+    `learn/[courseId]/actions.ts`の`getOrCreateSession`が作るセッションも
+    `learning_sessions.mode='solo_study'`になり、`learn/[courseId]/page.tsx`の
+    説明文が「まだ分かっていない擬似メンバーに、自分の言葉で説明してみよう」に変わる。
+    ペルソナを「まだ分からない仲間」役として設定する(F03/F04)のも、説明の質への
+    フィードバックをF07の観点(例: 根拠の明確さ・用語の正しさ・誤りの有無)で行うのも、
+    どちらも既存の仕組みをそのまま使う運用上の使い分けであり、コード上の分岐は無い
     - `[courseId]/dashboard/` — F14(教師ダッシュボード)。「参加状況、つまずき、
       擬似メンバーの挙動を確認し、学級・個人の指導計画に活かす」(要件定義書4章)。
       新規のAI呼び出しは一切せず、既存の蓄積データ(dialogue_turns/submissions/
@@ -280,6 +292,9 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     手書き専用の名前だったため、音声の元データパスも持たせられるよう`source_path`に改名
   - `0016_persona_audit.sql` — F15用。`dialogue_turns`に`flagged_by_teacher`・
     `teacher_note`を追加し、教師が擬似メンバーの発言を確認・修正した状態を直接持たせる
+  - `0017_solo_study_mode.sql` — F19用。`courses.mode`(`group`/`solo_study`、既定は
+    `group`)を追加。`learning_sessions.mode`は0001_init.sqlの時点で既に
+    `solo_study`を許容していたため、新しい対話機構は不要だった
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

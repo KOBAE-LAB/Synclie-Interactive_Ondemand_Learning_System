@@ -89,7 +89,7 @@ export default async function LearnCourseSessionPage({
 
   const { data: course } = await admin
     .from("courses")
-    .select("id, title, subject")
+    .select("id, title, subject, mode")
     .eq("id", courseId)
     .maybeSingle();
 
@@ -210,6 +210,11 @@ export default async function LearnCourseSessionPage({
     <div className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">{course.title}</h1>
       {course.subject && <p className="mt-1 text-sm text-zinc-500">{course.subject}</p>}
+      {course.mode === "solo_study" && (
+        <p className="mt-1 text-sm text-zinc-500">
+          独習モード(F19): まだ分かっていない擬似メンバーに、自分の言葉で説明してみよう。
+        </p>
+      )}
       <Link
         href={`/learn/${courseId}/portfolio`}
         className="mt-1 inline-block text-sm text-zinc-500 hover:underline"

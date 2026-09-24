@@ -14,8 +14,13 @@ export default async function LearnCoursesPage() {
 
   const { data: courses } = await admin
     .from("courses")
-    .select("id, title, subject")
+    .select("id, title, subject, mode")
     .order("created_at", { ascending: false });
+
+  const MODE_LABELS: Record<string, string> = {
+    group: "グループワーク",
+    solo_study: "独習(F19)",
+  };
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -34,6 +39,7 @@ export default async function LearnCoursesPage() {
             >
               <span className="font-medium text-zinc-950 dark:text-zinc-50">{course.title}</span>
               {course.subject && <span className="ml-2 text-zinc-500">({course.subject})</span>}
+              <span className="ml-2 text-xs text-zinc-400">[{MODE_LABELS[course.mode] ?? course.mode}]</span>
             </Link>
           </li>
         ))}

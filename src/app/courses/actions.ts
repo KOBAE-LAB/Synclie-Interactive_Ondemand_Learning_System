@@ -12,6 +12,7 @@ export async function createCourseAction(formData: FormData) {
   const session = await requireRole("teacher");
   const title = String(formData.get("title") ?? "").trim();
   const subject = String(formData.get("subject") ?? "").trim();
+  const mode = formData.get("mode") === "solo_study" ? "solo_study" : "group";
 
   if (!title) {
     throw new Error("授業名を入力してください。");
@@ -24,6 +25,7 @@ export async function createCourseAction(formData: FormData) {
       owner_teacher_id: session.user.id,
       title,
       subject: subject || null,
+      mode,
     })
     .select("id")
     .single();

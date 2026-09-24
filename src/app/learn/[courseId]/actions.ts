@@ -40,9 +40,13 @@ async function getOrCreateSession(admin: AdminClient, courseId: string, studentI
     .maybeSingle();
   if (existing) return existing.id as string;
 
+  // F19: 授業(courses.mode)が独習モードなら、セッションもsolo_studyとして作る。
+  const { data: course } = await admin.from("courses").select("mode").eq("id", courseId).maybeSingle();
+  const mode = course?.mode === "solo_study" ? "solo_study" : "group";
+
   const { data: created, error } = await admin
     .from("learning_sessions")
-    .insert({ course_id: courseId, student_id: studentId, mode: "group" })
+    .insert({ course_id: courseId, student_id: studentId, mode })
     .select("id")
     .single();
   if (error || !created) {
