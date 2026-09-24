@@ -8,6 +8,7 @@ import {
   approvePersonaAction,
   activatePersonaAction,
   deactivatePersonaAction,
+  generateEvolvedPersonasAction,
   type PersonaStatus,
 } from "./actions";
 import { PersonaForm } from "./persona-form";
@@ -18,6 +19,14 @@ interface PersonaRow {
   tier: string;
   status: PersonaStatus;
   profile: { role?: string } | null;
+  origin_note: string | null;
+}
+
+interface CorpusEntryRow {
+  id: string;
+  topic: string;
+  misconception: string | null;
+  effective_question: string | null;
 }
 
 const TIER_LABELS: Record<string, string> = {
@@ -59,13 +68,20 @@ export default async function PersonasPage({
 
   const { data: personas } = await admin
     .from("personas")
-    .select("id, name, tier, status, profile")
+    .select("id, name, tier, status, profile, origin_note")
+    .eq("course_id", courseId)
+    .order("created_at", { ascending: false });
+
+  const { data: corpusEntries } = await admin
+    .from("learner_corpus_entries")
+    .select("id, topic, misconception, effective_question")
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
 
   const rows = (personas ?? []) as PersonaRow[];
   const activeCount = rows.filter((p) => p.status === "active").length;
   const boundCreateAction = createPersonaAction.bind(null, courseId);
+  const boundGenerateEvolvedAction = generateEvolvedPersonasAction.bind(null, courseId);
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -93,6 +109,43 @@ export default async function PersonasPage({
         <PersonaForm action={boundCreateAction} submitLabel="作成する" />
       </div>
 
+      <div className="mt-6 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
+        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          学習進化型ペルソナ(F10)
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          同意済みの学習者の発言・成果・振り返りから、論点・誤概念・有効な問いを抽出し、
+          3〜5個の役割プロファイルを下書き(下書き状態)として提案する。特定の学習者の発言だと
+          推測されないよう、同意済みの学習者が一定数(3人)集まるまでは生成できない。
+          提案されたペルソナは、他のペルソナと同様に確認・編集してから承認・有効化すること。
+        </p>
+        <form action={boundGenerateEvolvedAction} className="mt-3">
+          <button
+            type="submit"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            学習進化型ペルソナを生成する
+          </button>
+        </form>
+
+        {corpusEntries && corpusEntries.length > 0 && (
+          <details className="mt-4">
+            <summary className="cursor-pointer text-xs text-zinc-500">
+              抽出された論点・誤概念・有効な問い({corpusEntries.length}件)
+            </summary>
+            <ul className="mt-2 space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
+              {(corpusEntries as CorpusEntryRow[]).map((entry) => (
+                <li key={entry.id} className="rounded-md border border-zinc-200 p-2 dark:border-zinc-800">
+                  <p>論点: {entry.topic}</p>
+                  {entry.misconception && <p>誤概念: {entry.misconception}</p>}
+                  {entry.effective_question && <p>有効な問い: {entry.effective_question}</p>}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+
       <ul className="mt-8 space-y-2">
         {rows.map((persona) => {
           const boundDeleteAction = deletePersonaAction.bind(null, courseId, persona.id);
@@ -103,66 +156,71 @@ export default async function PersonasPage({
           return (
             <li
               key={persona.id}
-              className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
             >
-              <Link
-                href={`/courses/${courseId}/personas/${persona.id}`}
-                className="min-w-0 hover:underline"
-              >
-                <span className="font-medium text-zinc-950 dark:text-zinc-50">{persona.name}</span>
-                {persona.profile?.role && (
-                  <span className="ml-2 text-zinc-500">({persona.profile.role})</span>
-                )}
-                <span className="ml-2 text-xs text-zinc-400">
-                  [{TIER_LABELS[persona.tier] ?? persona.tier}]
-                </span>
-              </Link>
+              <div className="flex items-center justify-between gap-3">
+                <Link
+                  href={`/courses/${courseId}/personas/${persona.id}`}
+                  className="min-w-0 hover:underline"
+                >
+                  <span className="font-medium text-zinc-950 dark:text-zinc-50">{persona.name}</span>
+                  {persona.profile?.role && (
+                    <span className="ml-2 text-zinc-500">({persona.profile.role})</span>
+                  )}
+                  <span className="ml-2 text-xs text-zinc-400">
+                    [{TIER_LABELS[persona.tier] ?? persona.tier}]
+                  </span>
+                </Link>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[persona.status]}`}>
-                  {STATUS_LABELS[persona.status]}
-                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[persona.status]}`}>
+                    {STATUS_LABELS[persona.status]}
+                  </span>
 
-                {persona.status === "draft" && (
-                  <form action={boundApproveAction}>
+                  {persona.status === "draft" && (
+                    <form action={boundApproveAction}>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        承認する
+                      </button>
+                    </form>
+                  )}
+                  {persona.status === "approved" && (
+                    <form action={boundActivateAction}>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        授業で使う
+                      </button>
+                    </form>
+                  )}
+                  {persona.status === "active" && (
+                    <form action={boundDeactivateAction}>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        使用をやめる
+                      </button>
+                    </form>
+                  )}
+
+                  <form action={boundDeleteAction}>
                     <button
                       type="submit"
                       className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
-                      承認する
+                      削除
                     </button>
                   </form>
-                )}
-                {persona.status === "approved" && (
-                  <form action={boundActivateAction}>
-                    <button
-                      type="submit"
-                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    >
-                      授業で使う
-                    </button>
-                  </form>
-                )}
-                {persona.status === "active" && (
-                  <form action={boundDeactivateAction}>
-                    <button
-                      type="submit"
-                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    >
-                      使用をやめる
-                    </button>
-                  </form>
-                )}
-
-                <form action={boundDeleteAction}>
-                  <button
-                    type="submit"
-                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    削除
-                  </button>
-                </form>
+                </div>
               </div>
+              {persona.origin_note && (
+                <p className="mt-2 text-xs text-zinc-400">生成理由: {persona.origin_note}</p>
+              )}
             </li>
           );
         })}

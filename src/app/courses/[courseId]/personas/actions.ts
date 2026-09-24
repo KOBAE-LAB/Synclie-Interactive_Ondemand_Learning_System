@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { assertOwnsCourse } from "@/lib/courses/ownership";
+import { generateEvolvedRoles } from "@/lib/ai/evolved-persona";
+
+type AdminClient = ReturnType<typeof createAdminClient>;
 
 // F03: ペルソナ設定。段階1では教師設定型(tier='teacher_defined')のみを扱う。
 // RAG初期型・学習進化型(資料や学習者データからの自動生成)は段階2のF10で扱う。
@@ -181,4 +184,139 @@ export async function activatePersonaAction(courseId: string, personaId: string)
 
 export async function deactivatePersonaAction(courseId: string, personaId: string) {
   await setPersonaStatus(courseId, personaId, "active", "approved");
+}
+
+// F10: 学習進化型擬似メンバー。
+// 「人数が少ない間は投射を控える」(要件定義書5章)ための下限。特定の学習者の発言だと
+// 推測されにくくするため、これ未満の人数では生成を拒否する。
+const MIN_STUDENTS_FOR_EVOLVED = 3;
+
+// 同意済み(consent_records.withdrawn_at is null)の学習者の発言・成果・振り返りだけを
+// 集める(要件定義書6章「学習者由来コーパスへの取り込みは、同意を得たデータに限り…行う」)。
+// 学習者名・IDは本文に含めない(内容だけを渡すことで個人を特定できないようにする)。
+async function buildCourseActivityLog(
+  admin: AdminClient,
+  courseId: string,
+): Promise<{ log: string; studentCount: number }> {
+  const { data: consented } = await admin
+    .from("consent_records")
+    .select("student_id")
+    .is("withdrawn_at", null);
+  const consentedIds = new Set((consented ?? []).map((c) => c.student_id));
+
+  const studentIds = new Set<string>();
+  const lines: string[] = [];
+
+  const { data: sessions } = await admin
+    .from("learning_sessions")
+    .select("id, student_id")
+    .eq("course_id", courseId);
+  const eligibleSessionIds = (sessions ?? [])
+    .filter((s) => consentedIds.has(s.student_id))
+    .map((s) => {
+      studentIds.add(s.student_id);
+      return s.id;
+    });
+
+  if (eligibleSessionIds.length > 0) {
+    const { data: turns } = await admin
+      .from("dialogue_turns")
+      .select("session_id, content")
+      .in("session_id", eligibleSessionIds)
+      .eq("speaker_type", "student");
+    for (const turn of turns ?? []) {
+      lines.push(`発言: ${turn.content}`);
+    }
+  }
+
+  const { data: submissions } = await admin
+    .from("submissions")
+    .select("id, student_id, content")
+    .eq("course_id", courseId);
+  const eligibleSubmissions = (submissions ?? []).filter((s) => consentedIds.has(s.student_id));
+  for (const submission of eligibleSubmissions) studentIds.add(submission.student_id);
+
+  const submissionIds = eligibleSubmissions.map((s) => s.id);
+  const reflectionBySubmission = new Map<
+    string,
+    { what_learned: string; what_confused: string }
+  >();
+  if (submissionIds.length > 0) {
+    const { data: reflections } = await admin
+      .from("reflections")
+      .select("submission_id, what_learned, what_confused")
+      .in("submission_id", submissionIds);
+    for (const reflection of reflections ?? []) {
+      reflectionBySubmission.set(reflection.submission_id, reflection);
+    }
+  }
+
+  for (const submission of eligibleSubmissions) {
+    lines.push(`成果: ${submission.content}`);
+    const reflection = reflectionBySubmission.get(submission.id);
+    if (reflection) {
+      lines.push(`振り返り(学んだこと): ${reflection.what_learned}`);
+      lines.push(`振り返り(迷ったこと): ${reflection.what_confused}`);
+    }
+  }
+
+  return { log: lines.join("\n"), studentCount: studentIds.size };
+}
+
+export async function generateEvolvedPersonasAction(courseId: string) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+
+  const { log, studentCount } = await buildCourseActivityLog(admin, courseId);
+
+  if (studentCount < MIN_STUDENTS_FOR_EVOLVED) {
+    throw new Error(
+      `学習進化型ペルソナの生成には、同意済みの学習者が最低${MIN_STUDENTS_FOR_EVOLVED}人分の活動記録が必要です` +
+        `(現在: ${studentCount}人。特定の学習者の発言だと推測されにくくするための下限です)。`,
+    );
+  }
+  if (!log) {
+    throw new Error("学習者の活動記録がまだありません。");
+  }
+
+  const result = await generateEvolvedRoles(log);
+
+  if (result.corpusEntries.length > 0) {
+    const { error: corpusError } = await admin.from("learner_corpus_entries").insert(
+      result.corpusEntries.map((entry) => ({
+        course_id: courseId,
+        topic: entry.topic,
+        misconception: entry.misconception,
+        effective_question: entry.effectiveQuestion,
+      })),
+    );
+    if (corpusError) {
+      throw new Error(`学習者由来コーパスの保存に失敗しました: ${corpusError.message}`);
+    }
+  }
+
+  // 手順4: 教師が承認したものだけを次の学習者に提供する。既存のF04承認ワークフローに乗せるため、
+  // status='draft'で作成する(教師がペルソナ設定画面で確認・承認・有効化する)。
+  const { error: personaError } = await admin.from("personas").insert(
+    result.rolePersonas.map((role) => ({
+      course_id: courseId,
+      name: role.name,
+      tier: "evolved",
+      status: "draft",
+      profile: { role: role.name, developmentalStage: "", existingKnowledge: "", tone: role.tone },
+      stance: { position: role.viewpointSummary, goal: "" },
+      behavior_rules: {
+        speakingFrequency: "普通",
+        teachingDegree: "問い返すのみ",
+        interventionCondition: "",
+      },
+      origin_note: role.rationale,
+    })),
+  );
+  if (personaError) {
+    throw new Error(`学習進化型ペルソナの作成に失敗しました: ${personaError.message}`);
+  }
+
+  revalidatePath(`/courses/${courseId}/personas`);
 }

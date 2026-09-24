@@ -136,10 +136,18 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
       段階1では教師設定型(`tier='teacher_defined'`)のみを教師が作成・編集・削除する。
       プロフィール/立場と目標/行動ルールを入力するフォームは`persona-form.tsx`を作成・編集で共用。
       知識源(授業RAG)は`course_id`で暗黙に決まるため入力フォームには含めない。
-      RAG初期型・学習進化型(資料や学習者データからの自動生成)は段階2のF10で扱う。
       F04は`personas.status`(`draft`→`approved`→`active`)の承認ワークフローとして実装:
       draftのまま対話に使われないよう、教師が明示的に承認(`approved`)し、
-      その授業で実際に使うペルソナだけを`active`にする(「人数」の管理はactiveの数で表現する)
+      その授業で実際に使うペルソナだけを`active`にする(「人数」の管理はactiveの数で表現する)。
+      同じ画面にF10(学習進化型擬似メンバー)の「学習進化型ペルソナを生成する」ボタンがある
+      (`generateEvolvedPersonasAction`)。同意済み(`consent_records.withdrawn_at is null`)の
+      学習者の発言・成果・振り返りだけを集め(氏名は含めない)、`src/lib/ai/evolved-persona.ts`の
+      1回の呼び出しで(1)論点・誤概念・有効な問いを抽出して`learner_corpus_entries`に保存、
+      (2)3〜5個の役割プロファイルを`tier='evolved', status='draft'`のpersonaとして作成する。
+      「人数が少ない間は投射を控える」(要件定義書5章)ため、同意済み学習者が
+      `MIN_STUDENTS_FOR_EVOLVED`(3人)未満だと生成を拒否する。生成後は既存のF04承認
+      フローにそのまま乗る(教師がここで確認・編集してから承認・有効化する)。
+      `personas.origin_note`に生成理由を保存し、一覧に表示する
     - `[courseId]/criteria/` — F07用。評価の観点(例: 根拠の明確さ)を教師が作成・編集・削除する。
       観点が1つも無いと学習者はAIフィードバックを受け取れない
     - `[courseId]/submissions/` — F07用。教師が全学習者の提出物(F06)とAIフィードバックを
@@ -165,7 +173,9 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
 - `src/lib/ai/` — ペルソナ対話(`persona.ts`)、論証評価(`argument-evaluation.ts`)、
   観点別AIフィードバック(`feedback.ts`、F07。`argument-evaluation.ts`とは別物:
   こちらは点数を返さず、教師が設定した観点ごとの助言を構造化出力で返す)、
-  学習者プロファイル要約(`student-profile.ts`、F09)、OpenAIクライアント(`openai.ts`)
+  学習者プロファイル要約(`student-profile.ts`、F09)、
+  学習進化型ペルソナの抽出・役割分類(`evolved-persona.ts`、F10)、
+  OpenAIクライアント(`openai.ts`)
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
   `material_chunks`保存までの一連の処理。失敗時は`course_materials.rag_status='failed'`
@@ -195,6 +205,8 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     (学習者1人1行。撤回は`withdrawn_at`を立てるだけで、再同意すれば使い直せる)
   - `0011_conformity_measurement.sql` — F20用。`argument_evaluations`に`persona_id`
     (非正規化、ペルソナ単位の集計用)・`persona_conceded`・`unwarranted_conformity`を追加
+  - `0012_evolved_personas.sql` — F10用。抽出結果(論点/誤概念/有効な問い)を保存する
+    `learner_corpus_entries`テーブルと、`personas.origin_note`(生成理由の説明文)を追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
