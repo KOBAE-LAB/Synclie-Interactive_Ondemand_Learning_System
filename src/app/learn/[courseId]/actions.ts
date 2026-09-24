@@ -8,6 +8,7 @@ import { askPersona, type PersonaProfile, type ChatTurn } from "@/lib/ai/persona
 import { generateOutcomeFeedback } from "@/lib/ai/feedback";
 import { evaluateArgument } from "@/lib/ai/argument-evaluation";
 import { recognizeHandwriting } from "@/lib/ai/handwriting";
+import { transcribeAudio } from "@/lib/ai/audio";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -102,15 +103,15 @@ function buildBehaviorNotes(rules: ActivePersonaRow["behavior_rules"]): string |
   return lines.length > 0 ? lines.join("\n") : undefined;
 }
 
-// F05/F12共通: 学習者の発言(テキストまたは手書き確定分)を保存し、授業RAG(F02)から
-// 関連資料を検索したうえで、使用中のペルソナ(F04)に1回だけ発言させる。
-// sourceKind/imagePathはF12(手書き入力)用: 確定した発言がどの入力手段由来かを記録する。
+// F05/F12/F13共通: 学習者の発言(テキスト、または手書き・音声の確定分)を保存し、
+// 授業RAG(F02)から関連資料を検索したうえで、使用中のペルソナ(F04)に1回だけ発言させる。
+// sourceはF12(手書き)/F13(音声)用: 確定した発言がどの入力手段由来かを記録する。
 async function postStudentMessageAndRespond(
   admin: AdminClient,
   courseId: string,
   studentId: string,
   message: string,
-  source: { kind: "text" | "handwriting"; imagePath?: string } = { kind: "text" },
+  source: { kind: "text" | "handwriting" | "audio"; sourcePath?: string } = { kind: "text" },
 ) {
   const { data: course } = await admin
     .from("courses")
@@ -130,7 +131,7 @@ async function postStudentMessageAndRespond(
       speaker_type: "student",
       content: message,
       source_kind: source.kind,
-      image_path: source.imagePath ?? null,
+      source_path: source.sourcePath ?? null,
     })
     .select("id")
     .single();
@@ -364,7 +365,7 @@ export async function confirmHandwritingAction(courseId: string, uploadId: strin
 
   await postStudentMessageAndRespond(admin, courseId, user.id, message, {
     kind: "handwriting",
-    imagePath: upload.image_path,
+    sourcePath: upload.image_path,
   });
 
   await admin.from("handwriting_uploads").update({ status: "confirmed" }).eq("id", uploadId);
@@ -386,6 +387,117 @@ export async function discardHandwritingAction(courseId: string, uploadId: strin
 
   await admin.storage.from("handwriting").remove([upload.image_path]);
   await admin.from("handwriting_uploads").delete().eq("id", uploadId);
+
+  revalidatePath(`/learn/${courseId}`);
+}
+
+// F13: 音声入力。音声ファイルをアップロードし、OpenAIの文字起こし機能で認識する。
+// F12(手書き)と同じ2段階フロー: audio_uploadsに一時保存し、学習者が画面で確認・修正して
+// から confirmAudioAction で送信する。
+export async function uploadAudioAction(courseId: string, formData: FormData) {
+  const { user } = await requireRole("student");
+
+  const file = formData.get("audio");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("音声ファイルを選択してください。");
+  }
+  if (!file.type.startsWith("audio/")) {
+    throw new Error("音声ファイルを選択してください。");
+  }
+
+  const admin = createAdminClient();
+
+  const { data: course } = await admin
+    .from("courses")
+    .select("id")
+    .eq("id", courseId)
+    .maybeSingle();
+  if (!course) {
+    throw new Error("授業が見つかりません。");
+  }
+
+  const sessionId = await getOrCreateSession(admin, courseId, user.id);
+
+  const safeName = file.name.replace(/[^\w.\-]/g, "_");
+  const path = `${user.id}/${crypto.randomUUID()}-${safeName}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const { error: uploadError } = await admin.storage
+    .from("audio")
+    .upload(path, buffer, { contentType: file.type });
+  if (uploadError) {
+    throw new Error(`音声のアップロードに失敗しました: ${uploadError.message}`);
+  }
+
+  const { data: uploadRow, error: insertError } = await admin
+    .from("audio_uploads")
+    .insert({ session_id: sessionId, student_id: user.id, audio_path: path, status: "transcribing" })
+    .select("id")
+    .single();
+  if (insertError || !uploadRow) {
+    throw new Error(`アップロード記録の作成に失敗しました: ${insertError?.message ?? "不明なエラー"}`);
+  }
+
+  try {
+    const transcribedText = await transcribeAudio(buffer, file.type, safeName);
+    await admin
+      .from("audio_uploads")
+      .update({ transcribed_text: transcribedText, status: "ready", error: null })
+      .eq("id", uploadRow.id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "不明なエラーが発生しました。";
+    await admin.from("audio_uploads").update({ status: "failed", error: message }).eq("id", uploadRow.id);
+  }
+
+  revalidatePath(`/learn/${courseId}`);
+}
+
+// F13: 文字起こし結果(学習者が確認・修正したテキスト)を発言として確定する。
+export async function confirmAudioAction(courseId: string, uploadId: string, formData: FormData) {
+  const { user } = await requireRole("student");
+  const admin = createAdminClient();
+
+  const { data: upload } = await admin
+    .from("audio_uploads")
+    .select("id, student_id, audio_path, status")
+    .eq("id", uploadId)
+    .maybeSingle();
+  if (!upload || upload.student_id !== user.id) {
+    throw new Error("アップロードが見つかりません。");
+  }
+  if (upload.status !== "ready") {
+    throw new Error("この音声はまだ文字起こし結果を確認できる状態ではありません。");
+  }
+
+  const message = String(formData.get("message") ?? "").trim();
+  if (!message) {
+    throw new Error("発言を入力してください。");
+  }
+
+  await postStudentMessageAndRespond(admin, courseId, user.id, message, {
+    kind: "audio",
+    sourcePath: upload.audio_path,
+  });
+
+  await admin.from("audio_uploads").update({ status: "confirmed" }).eq("id", uploadId);
+}
+
+// F13: 文字起こし結果を使わず取り消す(音声ファイルも削除する)。
+export async function discardAudioAction(courseId: string, uploadId: string) {
+  const { user } = await requireRole("student");
+  const admin = createAdminClient();
+
+  const { data: upload } = await admin
+    .from("audio_uploads")
+    .select("id, student_id, audio_path")
+    .eq("id", uploadId)
+    .maybeSingle();
+  if (!upload || upload.student_id !== user.id) {
+    throw new Error("アップロードが見つかりません。");
+  }
+
+  await admin.storage.from("audio").remove([upload.audio_path]);
+  await admin.from("audio_uploads").delete().eq("id", uploadId);
 
   revalidatePath(`/learn/${courseId}`);
 }

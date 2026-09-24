@@ -32,3 +32,7 @@ export const MODEL_JUDGE = process.env.SYNCLIE_MODEL_JUDGE ?? "gpt-5.6-luna";
 // F02(RAG生成)の埋め込みモデル。次元数は supabase/migrations の
 // material_chunks.embedding (vector(1536)) と一致させること。
 export const MODEL_EMBEDDING = process.env.SYNCLIE_MODEL_EMBEDDING ?? "text-embedding-3-small";
+
+// F13(音声入力)の文字起こしモデル。呼び出し頻度を抑えられないため、
+// 安価なモデルをデフォルトにしておく(要件定義書10章「コスト」)。
+export const MODEL_TRANSCRIBE = process.env.SYNCLIE_MODEL_TRANSCRIBE ?? "gpt-4o-mini-transcribe";

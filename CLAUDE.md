@@ -111,7 +111,7 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     残す)ができる。同意状況に関わらずアクセスできる(撤回中でもここは使える)。
     学習者に紐づくテーブルを追加するたびに、ここも合わせて更新すること(F12実装時に
     手書き画像のStorageファイル削除と、抜けていたF11の`personalization_suggestions`削除を
-    追加で拾った)
+    追加で拾った。F13実装時に音声ファイルの削除も同様に追加した)
   - `src/app/learn/` — F05(擬似メンバー対話)。学習者向け。`page.tsx`は全授業の一覧
     (段階1には受講登録の仕組みがまだ無いため、ログイン中の学習者に全授業を見せる簡易実装。
     本番投入前に受講登録ベースの絞り込みが必要)。`[courseId]/page.tsx`が実際のチャット画面。
@@ -147,7 +147,15 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     完全に同じ経路でペルソナが応答する)。「取り消す」を押すと`discardHandwritingAction`が
     Storage上の画像ごと削除する。テキスト発言側のロジックも`postStudentMessageAndRespond`に
     切り出し、`sendMessageAction`(テキスト)と`confirmHandwritingAction`(手書き)の両方から
-    共用している
+    共用している。
+    F13(音声入力)もまったく同じ2段階フローを`audio_uploads`テーブルで実装している:
+    `uploadAudioAction`が音声ファイルをStorageバケット`audio`に保存し、
+    `src/lib/ai/audio.ts`の`transcribeAudio`(OpenAIの音声文字起こしAPI)でテキスト化、
+    `confirmAudioAction`が確認・修正後のテキストを`postStudentMessageAndRespond`
+    (`source_kind='audio'`)に渡す、`discardAudioAction`が取り消す。F12実装時は
+    `dialogue_turns.image_path`という手書き専用の列名だったが、F13で音声にも同じ列を
+    使うため`source_path`に改名した(`postStudentMessageAndRespond`の引数も
+    `imagePath`→`sourcePath`)
   - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成し、
     `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
@@ -203,7 +211,9 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
   学習進化型ペルソナの抽出・役割分類(`evolved-persona.ts`、F10)、
   個別最適化の提案生成(`personalization.ts`、F11)、
   手書き画像の認識(`handwriting.ts`、F12。マルチモーダル入力で文字を書き起こし、
-  図・イラストは「[図: 説明]」の形で言葉に変換する)、OpenAIクライアント(`openai.ts`)
+  図・イラストは「[図: 説明]」の形で言葉に変換する)、
+  音声の文字起こし(`audio.ts`、F13。OpenAIの音声文字起こしAPIを使う)、
+  OpenAIクライアント(`openai.ts`。`MODEL_TRANSCRIBE`もここで定義)
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
   `material_chunks`保存までの一連の処理。失敗時は`course_materials.rag_status='failed'`
@@ -243,6 +253,10 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     (`status`: recognizing/ready/failed/confirmed)を追加。`dialogue_turns`に
     `source_kind`(text/handwriting/audio)と`image_path`を追加し、確定後は
     テキスト発言と同じ行の形で保存できるようにする
+  - `0015_audio_input.sql` — F13用。音声ファイル用の非公開Storageバケット`audio`と、
+    文字起こし結果を確認・修正してから送信するまでの一時テーブル`audio_uploads`
+    (`status`: transcribing/ready/failed/confirmed)を追加。`dialogue_turns.image_path`は
+    手書き専用の名前だったため、音声の元データパスも持たせられるよう`source_path`に改名
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

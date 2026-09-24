@@ -11,6 +11,9 @@ import {
   uploadHandwritingAction,
   confirmHandwritingAction,
   discardHandwritingAction,
+  uploadAudioAction,
+  confirmAudioAction,
+  discardAudioAction,
 } from "./actions";
 
 interface DialogueTurnRow {
@@ -27,6 +30,15 @@ interface HandwritingUploadRow {
   id: string;
   recognized_text: string | null;
   status: HandwritingStatus;
+  error: string | null;
+}
+
+type AudioStatus = "transcribing" | "ready" | "failed" | "confirmed";
+
+interface AudioUploadRow {
+  id: string;
+  transcribed_text: string | null;
+  status: AudioStatus;
   error: string | null;
 }
 
@@ -98,6 +110,7 @@ export default async function LearnCourseSessionPage({
   let turns: DialogueTurnRow[] = [];
   const personaNames = new Map<string, string>();
   let pendingHandwritingUploads: HandwritingUploadRow[] = [];
+  let pendingAudioUploads: AudioUploadRow[] = [];
 
   if (session) {
     const { data: turnRows } = await admin
@@ -123,6 +136,15 @@ export default async function LearnCourseSessionPage({
       .neq("status", "confirmed")
       .order("created_at", { ascending: true });
     pendingHandwritingUploads = (uploadRows ?? []) as HandwritingUploadRow[];
+
+    // F13: まだ送信していない(確認・修正待ちの)音声アップロードを表示する。
+    const { data: audioUploadRows } = await admin
+      .from("audio_uploads")
+      .select("id, transcribed_text, status, error")
+      .eq("session_id", session.id)
+      .neq("status", "confirmed")
+      .order("created_at", { ascending: true });
+    pendingAudioUploads = (audioUploadRows ?? []) as AudioUploadRow[];
   }
 
   const { count: activePersonaCount } = await admin
@@ -182,6 +204,7 @@ export default async function LearnCourseSessionPage({
   const boundSendAction = sendMessageAction.bind(null, courseId);
   const boundSubmitOutcomeAction = submitOutcomeAction.bind(null, courseId);
   const boundUploadHandwritingAction = uploadHandwritingAction.bind(null, courseId);
+  const boundUploadAudioAction = uploadAudioAction.bind(null, courseId);
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -224,6 +247,9 @@ export default async function LearnCourseSessionPage({
               )}
               {turn.source_kind === "handwriting" && (
                 <p className="mb-1 text-xs text-zinc-400">[手書きから変換]</p>
+              )}
+              {turn.source_kind === "audio" && (
+                <p className="mb-1 text-xs text-zinc-400">[音声から変換]</p>
               )}
               <p className="whitespace-pre-wrap">{turn.content}</p>
             </div>
@@ -268,6 +294,91 @@ export default async function LearnCourseSessionPage({
           画像を読み取る
         </button>
       </form>
+
+      <form action={boundUploadAudioAction} className="mt-3 flex items-center gap-2">
+        <label className="text-xs text-zinc-500">
+          音声で発言する(F13):
+          <input
+            name="audio"
+            type="file"
+            accept="audio/*"
+            required
+            className="ml-2 text-xs text-zinc-700 dark:text-zinc-300"
+          />
+        </label>
+        <button
+          type="submit"
+          className="shrink-0 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          音声を文字起こしする
+        </button>
+      </form>
+
+      {pendingAudioUploads.length > 0 && (
+        <ul className="mt-4 space-y-3">
+          {pendingAudioUploads.map((upload) => {
+            const boundConfirmAction = confirmAudioAction.bind(null, courseId, upload.id);
+            const boundDiscardAction = discardAudioAction.bind(null, courseId, upload.id);
+            return (
+              <li
+                key={upload.id}
+                className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              >
+                {upload.status === "transcribing" && (
+                  <p className="text-xs text-zinc-500">音声を文字起こししています…</p>
+                )}
+                {upload.status === "failed" && (
+                  <>
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      文字起こしに失敗しました: {upload.error}
+                    </p>
+                    <form action={boundDiscardAction} className="mt-2">
+                      <button
+                        type="submit"
+                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        取り消す
+                      </button>
+                    </form>
+                  </>
+                )}
+                {upload.status === "ready" && (
+                  <form action={boundConfirmAction} className="space-y-2">
+                    <p className="text-xs text-zinc-500">
+                      文字起こし結果です。内容を確認・修正してから送信してください。
+                    </p>
+                    <textarea
+                      name="message"
+                      required
+                      rows={3}
+                      defaultValue={upload.transcribed_text ?? ""}
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                      >
+                        この内容で送信
+                      </button>
+                    </div>
+                  </form>
+                )}
+                {upload.status === "ready" && (
+                  <form action={boundDiscardAction} className="mt-2">
+                    <button
+                      type="submit"
+                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      取り消す
+                    </button>
+                  </form>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {pendingHandwritingUploads.length > 0 && (
         <ul className="mt-4 space-y-3">
