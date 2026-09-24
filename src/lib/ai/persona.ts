@@ -9,8 +9,12 @@
  *
  * 同調(学習者に安易に合わせること)を避けるため、新しい根拠または具体例を
  * 伴わない限り、ペルソナは自分の立場を保つ。この判定は argument-evaluation.ts の
- * 「論証評価」を使う(F20)。
+ * 「論証評価」を使う(F20)。askPersona は返答本文に加えて、その返答で実際に
+ * 譲歩したか(conceded)を自己申告させる。これを論証評価の has_new_evidence と
+ * 突き合わせることで、「根拠なく同調したか」を記録できる。
  */
+import { z } from "zod";
+import { zodTextFormat } from "openai/helpers/zod";
 import { openai, MODEL_PERSONA } from "./openai";
 
 export interface PersonaProfile {
@@ -22,6 +26,9 @@ export interface PersonaProfile {
   // F03/F04で教師が設定した、このペルソナ固有の行動ルール(発言頻度、教える度合い、介入の条件など)。
   // 未設定なら省略可(COMMON_GUARDRAILSのみが適用される)。
   behaviorNotes?: string;
+  // F20: この1ターンだけの動的な補足(例: 論証評価による「新しい根拠の有無」の判定結果)。
+  // persona自体の設定ではないため behaviorNotes とは別枠にしている。
+  turnGuidance?: string;
 }
 
 export const COMMON_GUARDRAILS = `
@@ -48,21 +55,35 @@ ${persona.materialText}
 
 # 立場と目標
 ${persona.stance}
-${persona.behaviorNotes ? `\n# このペルソナ固有の行動ルール\n${persona.behaviorNotes}\n` : ""}${COMMON_GUARDRAILS}`;
+${persona.behaviorNotes ? `\n# このペルソナ固有の行動ルール\n${persona.behaviorNotes}\n` : ""}${persona.turnGuidance ? `\n# 今回の発言に対する補足\n${persona.turnGuidance}\n` : ""}${COMMON_GUARDRAILS}`;
 }
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 
+const PersonaReplySchema = z.object({
+  reply: z.string().describe("学習者への返答本文(自然な会話文、3〜4文程度)"),
+  conceded: z
+    .boolean()
+    .describe("この返答で、直前の学習者の発言を理由に自分の立場を譲歩・変更したか"),
+});
+
+export interface PersonaReply {
+  reply: string;
+  conceded: boolean;
+}
+
 export async function askPersona(
   persona: PersonaProfile,
   history: ChatTurn[],
-): Promise<string> {
-  const response = await openai.responses.create({
+): Promise<PersonaReply> {
+  const response = await openai.responses.parse({
     model: MODEL_PERSONA,
     input: [
       { role: "system", content: buildPersonaSystemPrompt(persona) },
       ...history,
     ],
+    text: { format: zodTextFormat(PersonaReplySchema, "persona_reply") },
   });
-  return response.output_text;
+
+  return response.output_parsed as PersonaReply;
 }

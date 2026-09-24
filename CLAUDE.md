@@ -64,6 +64,16 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
 設計の一貫性とコスト削減(呼び出し回数削減)の両方が理由。
 実装: `src/lib/ai/argument-evaluation.ts`
 
+F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み。学習者の発言のたびに
+`evaluateArgument()`で「新しい根拠・具体例を含むか」を判定し、その結果を
+`src/lib/ai/persona.ts`の`PersonaProfile.turnGuidance`としてペルソナのプロンプトに渡す
+(根拠が無ければ「この発言だけを理由に立場を変えないこと」と明示的に指示する)。
+ペルソナの返答自体も構造化出力にしてあり(`askPersona`が`{reply, conceded}`を返す)、
+「譲歩したか」を同じ呼び出しの中で自己申告させる。`hasNewEvidence`と`conceded`を
+突き合わせて`unwarranted_conformity`(根拠なく同調したか)を`argument_evaluations`に記録し、
+`courses/[courseId]/conformity/`でペルソナ別に集計・一覧できる(ペルソナの設定を変えて
+比較するための画面)。評価呼び出しが失敗しても対話自体は止めない(計測は付加情報のため)。
+
 ## 6. 教材データの方針
 
 - 教科書本文そのものは保存しない。教師が入力した資料 + 学習指導要領/使用教科書との
@@ -144,6 +154,9 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
       学習履歴の要約を生成する(`generateStudentProfileAction`、`student_profiles`に保存)。
       段階2のF11(個別最適化支援)がこのプロファイルを読む想定。自動生成はせず、
       呼び出し回数を絞るため教師が明示的に押したときだけ生成する
+    - `[courseId]/conformity/` — F20用。ペルソナ別の「根拠なく同調した割合」
+      (`unwarranted_conformity`)を集計し、フラグが立った発言を一覧表示する読み取り専用画面
+      (詳細は5章「論証評価」共有コンポーネント参照)
 - `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
 - `src/lib/courses/ownership.ts` — `assertOwnsCourse()`: 教師が自分の授業を操作しているかの
   確認(RLS未整備な段階1のアプリ側ガード)。`courses/[courseId]/`配下の複数のactions.tsから共用
@@ -180,6 +193,8 @@ F20(ペルソナの意見変更判定)とF24(討論AIジャッジ)は、**同じ
     学習者×授業単位で保存する`student_profiles`テーブルを追加
   - `0010_consent.sql` — F16用。学習者の同意状況を保存する`consent_records`テーブルを追加
     (学習者1人1行。撤回は`withdrawn_at`を立てるだけで、再同意すれば使い直せる)
+  - `0011_conformity_measurement.sql` — F20用。`argument_evaluations`に`persona_id`
+    (非正規化、ペルソナ単位の集計用)・`persona_conceded`・`unwarranted_conformity`を追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

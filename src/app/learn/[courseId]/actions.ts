@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { searchMaterialChunks } from "@/lib/rag/search";
 import { askPersona, type PersonaProfile, type ChatTurn } from "@/lib/ai/persona";
 import { generateOutcomeFeedback } from "@/lib/ai/feedback";
+import { evaluateArgument } from "@/lib/ai/argument-evaluation";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -123,13 +124,17 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
 
   const sessionId = await getOrCreateSession(admin, courseId, user.id);
 
-  const { error: studentTurnError } = await admin.from("dialogue_turns").insert({
-    session_id: sessionId,
-    speaker_type: "student",
-    content: message,
-  });
-  if (studentTurnError) {
-    throw new Error(`発言の保存に失敗しました: ${studentTurnError.message}`);
+  const { data: studentTurn, error: studentTurnError } = await admin
+    .from("dialogue_turns")
+    .insert({
+      session_id: sessionId,
+      speaker_type: "student",
+      content: message,
+    })
+    .select("id")
+    .single();
+  if (studentTurnError || !studentTurn) {
+    throw new Error(`発言の保存に失敗しました: ${studentTurnError?.message ?? "不明なエラー"}`);
   }
 
   const persona = await pickRespondingPersona(admin, courseId, sessionId);
@@ -160,6 +165,31 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
       content: turn.content,
     }));
 
+  // F20: 論証評価(F20/F24共有コンポーネント)で、学習者の直近発言が新しい根拠・具体例を
+  // 含むかを判定する。失敗しても対話自体は止めない(評価は計測のための付加情報のため)。
+  let hasNewEvidence: boolean | null = null;
+  let argumentScores: {
+    logicStructure: number;
+    evidenceQuality: number;
+    rebuttalResponse: number;
+    summaryComment: string;
+  } | null = null;
+  try {
+    const transcriptText = history
+      .map((turn) => `${turn.role === "user" ? "学習者" : "擬似メンバー"}: ${turn.content}`)
+      .join("\n");
+    const evaluation = await evaluateArgument(materialText, transcriptText);
+    hasNewEvidence = evaluation.新規の根拠や具体例を含むか;
+    argumentScores = {
+      logicStructure: evaluation.論理構成,
+      evidenceQuality: evaluation.根拠の質,
+      rebuttalResponse: evaluation.反論への応答,
+      summaryComment: evaluation.総評,
+    };
+  } catch {
+    // 評価に失敗しても対話は継続する。この場合、同調の判定材料が無いため記録は行わない。
+  }
+
   const personaProfile: PersonaProfile = {
     name: persona.name,
     role: persona.profile?.role ?? "",
@@ -167,11 +197,20 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
     stance: `立場: ${persona.stance?.position ?? "(未設定)"}\n目標: ${persona.stance?.goal ?? "(未設定)"}`,
     materialText,
     behaviorNotes: buildBehaviorNotes(persona.behavior_rules),
+    turnGuidance:
+      hasNewEvidence === null
+        ? undefined
+        : hasNewEvidence
+          ? "学習者の直近の発言には新しい根拠・具体例が含まれると判定された。妥当だと感じるなら少し譲歩してよい。"
+          : "学習者の直近の発言には新しい根拠・具体例が含まれないと判定された。この発言だけを理由に立場を変えないこと。",
   };
 
   let replyText: string;
+  let conceded: boolean | null = null;
   try {
-    replyText = await askPersona(personaProfile, history);
+    const result = await askPersona(personaProfile, history);
+    replyText = result.reply;
+    conceded = result.conceded;
   } catch (err) {
     const detail = err instanceof Error ? err.message : "不明なエラー";
     throw new Error(`擬似メンバーの発言生成に失敗しました: ${detail}`);
@@ -185,6 +224,22 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
   });
   if (personaTurnError) {
     throw new Error(`擬似メンバーの発言保存に失敗しました: ${personaTurnError.message}`);
+  }
+
+  // F20: 「根拠なく意見が寄った度合い」を記録する。新しい根拠が無い(hasNewEvidence=false)のに
+  // ペルソナが譲歩した(conceded=true)場合を unwarranted_conformity として記録する。
+  if (argumentScores !== null && hasNewEvidence !== null && conceded !== null) {
+    await admin.from("argument_evaluations").insert({
+      dialogue_turn_id: studentTurn.id,
+      persona_id: persona.id,
+      logic_structure: argumentScores.logicStructure,
+      evidence_quality: argumentScores.evidenceQuality,
+      rebuttal_response: argumentScores.rebuttalResponse,
+      has_new_evidence: hasNewEvidence,
+      summary_comment: argumentScores.summaryComment,
+      persona_conceded: conceded,
+      unwarranted_conformity: conceded && !hasNewEvidence,
+    });
   }
 
   revalidatePath(`/learn/${courseId}`);
