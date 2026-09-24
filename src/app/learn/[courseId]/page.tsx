@@ -8,6 +8,9 @@ import {
   submitOutcomeAction,
   generateFeedbackAction,
   saveReflectionAction,
+  uploadHandwritingAction,
+  confirmHandwritingAction,
+  discardHandwritingAction,
 } from "./actions";
 
 interface DialogueTurnRow {
@@ -15,6 +18,16 @@ interface DialogueTurnRow {
   speaker_type: "student" | "persona";
   persona_id: string | null;
   content: string;
+  source_kind: "text" | "handwriting" | "audio";
+}
+
+type HandwritingStatus = "recognizing" | "ready" | "failed" | "confirmed";
+
+interface HandwritingUploadRow {
+  id: string;
+  recognized_text: string | null;
+  status: HandwritingStatus;
+  error: string | null;
 }
 
 type FeedbackStatus = "pending" | "processing" | "done" | "failed";
@@ -84,11 +97,12 @@ export default async function LearnCourseSessionPage({
 
   let turns: DialogueTurnRow[] = [];
   const personaNames = new Map<string, string>();
+  let pendingHandwritingUploads: HandwritingUploadRow[] = [];
 
   if (session) {
     const { data: turnRows } = await admin
       .from("dialogue_turns")
-      .select("id, speaker_type, persona_id, content")
+      .select("id, speaker_type, persona_id, content, source_kind")
       .eq("session_id", session.id)
       .order("created_at", { ascending: true });
     turns = (turnRows ?? []) as DialogueTurnRow[];
@@ -100,6 +114,15 @@ export default async function LearnCourseSessionPage({
         personaNames.set(persona.id, persona.name);
       }
     }
+
+    // F12: まだ送信していない(確認・修正待ちの)手書きアップロードを表示する。
+    const { data: uploadRows } = await admin
+      .from("handwriting_uploads")
+      .select("id, recognized_text, status, error")
+      .eq("session_id", session.id)
+      .neq("status", "confirmed")
+      .order("created_at", { ascending: true });
+    pendingHandwritingUploads = (uploadRows ?? []) as HandwritingUploadRow[];
   }
 
   const { count: activePersonaCount } = await admin
@@ -158,6 +181,7 @@ export default async function LearnCourseSessionPage({
 
   const boundSendAction = sendMessageAction.bind(null, courseId);
   const boundSubmitOutcomeAction = submitOutcomeAction.bind(null, courseId);
+  const boundUploadHandwritingAction = uploadHandwritingAction.bind(null, courseId);
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -198,6 +222,9 @@ export default async function LearnCourseSessionPage({
                   {turn.persona_id ? (personaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー"}(AI)
                 </p>
               )}
+              {turn.source_kind === "handwriting" && (
+                <p className="mb-1 text-xs text-zinc-400">[手書きから変換]</p>
+              )}
               <p className="whitespace-pre-wrap">{turn.content}</p>
             </div>
           </div>
@@ -222,6 +249,91 @@ export default async function LearnCourseSessionPage({
           送信
         </button>
       </form>
+
+      <form action={boundUploadHandwritingAction} className="mt-3 flex items-center gap-2">
+        <label className="text-xs text-zinc-500">
+          手書きで発言する(F12):
+          <input
+            name="image"
+            type="file"
+            accept="image/*"
+            required
+            className="ml-2 text-xs text-zinc-700 dark:text-zinc-300"
+          />
+        </label>
+        <button
+          type="submit"
+          className="shrink-0 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          画像を読み取る
+        </button>
+      </form>
+
+      {pendingHandwritingUploads.length > 0 && (
+        <ul className="mt-4 space-y-3">
+          {pendingHandwritingUploads.map((upload) => {
+            const boundConfirmAction = confirmHandwritingAction.bind(null, courseId, upload.id);
+            const boundDiscardAction = discardHandwritingAction.bind(null, courseId, upload.id);
+            return (
+              <li
+                key={upload.id}
+                className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              >
+                {upload.status === "recognizing" && (
+                  <p className="text-xs text-zinc-500">画像を読み取っています…</p>
+                )}
+                {upload.status === "failed" && (
+                  <>
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      読み取りに失敗しました: {upload.error}
+                    </p>
+                    <form action={boundDiscardAction} className="mt-2">
+                      <button
+                        type="submit"
+                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        取り消す
+                      </button>
+                    </form>
+                  </>
+                )}
+                {upload.status === "ready" && (
+                  <form action={boundConfirmAction} className="space-y-2">
+                    <p className="text-xs text-zinc-500">
+                      読み取り結果です。内容を確認・修正してから送信してください。
+                    </p>
+                    <textarea
+                      name="message"
+                      required
+                      rows={3}
+                      defaultValue={upload.recognized_text ?? ""}
+                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                      >
+                        この内容で送信
+                      </button>
+                    </div>
+                  </form>
+                )}
+                {upload.status === "ready" && (
+                  <form action={boundDiscardAction} className="mt-2">
+                    <button
+                      type="submit"
+                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      取り消す
+                    </button>
+                  </form>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <div className="mt-12 border-t border-zinc-200 pt-8 dark:border-zinc-800">
         <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">

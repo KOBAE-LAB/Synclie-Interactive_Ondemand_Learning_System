@@ -108,7 +108,10 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     同意すると`consent_records`に記録され`/learn`に戻る
   - `src/app/learn/data/` — F16用。学習者が自分の同意状況の確認・撤回(利用停止)、
     保存データ件数の確認、全データ削除(`deleteMyDataAction`。ログインアカウント自体は
-    残す)ができる。同意状況に関わらずアクセスできる(撤回中でもここは使える)
+    残す)ができる。同意状況に関わらずアクセスできる(撤回中でもここは使える)。
+    学習者に紐づくテーブルを追加するたびに、ここも合わせて更新すること(F12実装時に
+    手書き画像のStorageファイル削除と、抜けていたF11の`personalization_suggestions`削除を
+    追加で拾った)
   - `src/app/learn/` — F05(擬似メンバー対話)。学習者向け。`page.tsx`は全授業の一覧
     (段階1には受講登録の仕組みがまだ無いため、ログイン中の学習者に全授業を見せる簡易実装。
     本番投入前に受講登録ベースの絞り込みが必要)。`[courseId]/page.tsx`が実際のチャット画面。
@@ -127,7 +130,24 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     `saveReflectionAction`)が現れる: 学んだこと・迷ったこと・次にやりたいことを
     `reflections`に保存し(1提出物1件、`submission_id`にunique制約)、
     「教師に共有する」チェックボックス(`shared_with_teacher`)で公開範囲を選べる。
-    `[courseId]/portfolio/` は成果・フィードバック・振り返りを時系列にまとめた読み取り専用ビュー
+    `[courseId]/portfolio/` は成果・フィードバック・振り返りを時系列にまとめた読み取り専用ビュー。
+    同じチャット画面にF12(手書き入力)の画像アップロードフォームがある(テキスト入力とは別枠)。
+    「内部では『テキスト化した内容+元データ』の組に統一し、同じ仕組みで扱う」(要件定義書8章)ため、
+    テキスト発言・手書き発言のどちらも最終的には同じ`dialogue_turns`行になる(区別は
+    `source_kind`列)。テキスト発言は`sendMessageAction`が直接処理するのに対し、手書きは
+    「認識してから、本人が確認・修正してから送信できる」(要件定義書8章)ことが必須要件なので、
+    確定前に`handwriting_uploads`という一時テーブルを経由する2段階フローにした:
+    (1)`uploadHandwritingAction`が画像をStorageバケット`handwriting`に保存し、
+    `src/lib/ai/handwriting.ts`の`recognizeHandwriting`(画像を渡すマルチモーダル呼び出し)で
+    テキスト化して`handwriting_uploads.status='ready'`+`recognized_text`に保存する(失敗時は
+    `status='failed'`+`error`)。(2)画面には認識結果が編集可能なテキストエリアとして表示され、
+    学習者が内容を確認・修正してから「この内容で送信」を押すと`confirmHandwritingAction`が
+    (編集後の内容で)テキスト発言と共通の`postStudentMessageAndRespond`ヘルパーを呼び、
+    `source_kind='handwriting'`+`image_path`付きで`dialogue_turns`に保存する(以降はF05/F11/F20と
+    完全に同じ経路でペルソナが応答する)。「取り消す」を押すと`discardHandwritingAction`が
+    Storage上の画像ごと削除する。テキスト発言側のロジックも`postStudentMessageAndRespond`に
+    切り出し、`sendMessageAction`(テキスト)と`confirmHandwritingAction`(手書き)の両方から
+    共用している
   - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成し、
     `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
@@ -181,7 +201,9 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
   こちらは点数を返さず、教師が設定した観点ごとの助言を構造化出力で返す)、
   学習者プロファイル要約(`student-profile.ts`、F09)、
   学習進化型ペルソナの抽出・役割分類(`evolved-persona.ts`、F10)、
-  個別最適化の提案生成(`personalization.ts`、F11)、OpenAIクライアント(`openai.ts`)
+  個別最適化の提案生成(`personalization.ts`、F11)、
+  手書き画像の認識(`handwriting.ts`、F12。マルチモーダル入力で文字を書き起こし、
+  図・イラストは「[図: 説明]」の形で言葉に変換する)、OpenAIクライアント(`openai.ts`)
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
   `material_chunks`保存までの一連の処理。失敗時は`course_materials.rag_status='failed'`
@@ -216,6 +238,11 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
   - `0013_personalization.sql` — F11用。個別最適化の提案(同じ誤解を避ける問い/探究テーマ/
     促し方/難度・足場かけ)を保存する`personalization_suggestions`テーブルを追加。
     `status`(suggested/accepted/declined)で採用可否を管理する
+  - `0014_handwriting.sql` — F12用。手書き画像用の非公開Storageバケット`handwriting`と、
+    認識結果を確認・修正してから送信するまでの一時テーブル`handwriting_uploads`
+    (`status`: recognizing/ready/failed/confirmed)を追加。`dialogue_turns`に
+    `source_kind`(text/handwriting/audio)と`image_path`を追加し、確定後は
+    テキスト発言と同じ行の形で保存できるようにする
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

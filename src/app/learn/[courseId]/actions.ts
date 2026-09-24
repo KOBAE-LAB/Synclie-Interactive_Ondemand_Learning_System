@@ -7,6 +7,7 @@ import { searchMaterialChunks } from "@/lib/rag/search";
 import { askPersona, type PersonaProfile, type ChatTurn } from "@/lib/ai/persona";
 import { generateOutcomeFeedback } from "@/lib/ai/feedback";
 import { evaluateArgument } from "@/lib/ai/argument-evaluation";
+import { recognizeHandwriting } from "@/lib/ai/handwriting";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -101,18 +102,16 @@ function buildBehaviorNotes(rules: ActivePersonaRow["behavior_rules"]): string |
   return lines.length > 0 ? lines.join("\n") : undefined;
 }
 
-// F05: 学習者の発言を保存し、授業RAG(F02)から関連資料を検索したうえで、
-// 使用中のペルソナ(F04)に1回だけ発言させる。
-export async function sendMessageAction(courseId: string, formData: FormData) {
-  const { user } = await requireRole("student");
-
-  const message = String(formData.get("message") ?? "").trim();
-  if (!message) {
-    throw new Error("発言を入力してください。");
-  }
-
-  const admin = createAdminClient();
-
+// F05/F12共通: 学習者の発言(テキストまたは手書き確定分)を保存し、授業RAG(F02)から
+// 関連資料を検索したうえで、使用中のペルソナ(F04)に1回だけ発言させる。
+// sourceKind/imagePathはF12(手書き入力)用: 確定した発言がどの入力手段由来かを記録する。
+async function postStudentMessageAndRespond(
+  admin: AdminClient,
+  courseId: string,
+  studentId: string,
+  message: string,
+  source: { kind: "text" | "handwriting"; imagePath?: string } = { kind: "text" },
+) {
   const { data: course } = await admin
     .from("courses")
     .select("id")
@@ -122,7 +121,7 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
     throw new Error("授業が見つかりません。");
   }
 
-  const sessionId = await getOrCreateSession(admin, courseId, user.id);
+  const sessionId = await getOrCreateSession(admin, courseId, studentId);
 
   const { data: studentTurn, error: studentTurnError } = await admin
     .from("dialogue_turns")
@@ -130,6 +129,8 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
       session_id: sessionId,
       speaker_type: "student",
       content: message,
+      source_kind: source.kind,
+      image_path: source.imagePath ?? null,
     })
     .select("id")
     .single();
@@ -196,7 +197,7 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
   const { data: personalization } = await admin
     .from("personalization_suggestions")
     .select("avoid_misconception_question, prompting_adjustment, difficulty_adjustment")
-    .eq("student_id", user.id)
+    .eq("student_id", studentId)
     .eq("course_id", courseId)
     .eq("status", "accepted")
     .maybeSingle();
@@ -261,6 +262,130 @@ export async function sendMessageAction(courseId: string, formData: FormData) {
       unwarranted_conformity: conceded && !hasNewEvidence,
     });
   }
+
+  revalidatePath(`/learn/${courseId}`);
+}
+
+// F05: 学習者の発言(タイピング)を保存し、擬似メンバーに発言させる。
+export async function sendMessageAction(courseId: string, formData: FormData) {
+  const { user } = await requireRole("student");
+
+  const message = String(formData.get("message") ?? "").trim();
+  if (!message) {
+    throw new Error("発言を入力してください。");
+  }
+
+  const admin = createAdminClient();
+  await postStudentMessageAndRespond(admin, courseId, user.id, message);
+}
+
+// F12: 手書き入力。画像をアップロードし、OpenAIのVision機能で認識する。
+// 認識結果はまだ発言として確定しない(handwriting_uploadsに一時保存し、
+// 学習者が画面で確認・修正してから confirmHandwritingAction で送信する)。
+export async function uploadHandwritingAction(courseId: string, formData: FormData) {
+  const { user } = await requireRole("student");
+
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("画像ファイルを選択してください。");
+  }
+  if (!file.type.startsWith("image/")) {
+    throw new Error("画像ファイルを選択してください。");
+  }
+
+  const admin = createAdminClient();
+
+  const { data: course } = await admin
+    .from("courses")
+    .select("id")
+    .eq("id", courseId)
+    .maybeSingle();
+  if (!course) {
+    throw new Error("授業が見つかりません。");
+  }
+
+  const sessionId = await getOrCreateSession(admin, courseId, user.id);
+
+  const safeName = file.name.replace(/[^\w.\-]/g, "_");
+  const path = `${user.id}/${crypto.randomUUID()}-${safeName}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const { error: uploadError } = await admin.storage
+    .from("handwriting")
+    .upload(path, buffer, { contentType: file.type });
+  if (uploadError) {
+    throw new Error(`画像のアップロードに失敗しました: ${uploadError.message}`);
+  }
+
+  const { data: uploadRow, error: insertError } = await admin
+    .from("handwriting_uploads")
+    .insert({ session_id: sessionId, student_id: user.id, image_path: path, status: "recognizing" })
+    .select("id")
+    .single();
+  if (insertError || !uploadRow) {
+    throw new Error(`アップロード記録の作成に失敗しました: ${insertError?.message ?? "不明なエラー"}`);
+  }
+
+  try {
+    const recognizedText = await recognizeHandwriting(buffer.toString("base64"), file.type);
+    await admin
+      .from("handwriting_uploads")
+      .update({ recognized_text: recognizedText, status: "ready", error: null })
+      .eq("id", uploadRow.id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "不明なエラーが発生しました。";
+    await admin.from("handwriting_uploads").update({ status: "failed", error: message }).eq("id", uploadRow.id);
+  }
+
+  revalidatePath(`/learn/${courseId}`);
+}
+
+// F12: 認識結果(学習者が確認・修正したテキスト)を発言として確定する。
+export async function confirmHandwritingAction(courseId: string, uploadId: string, formData: FormData) {
+  const { user } = await requireRole("student");
+  const admin = createAdminClient();
+
+  const { data: upload } = await admin
+    .from("handwriting_uploads")
+    .select("id, student_id, image_path, status")
+    .eq("id", uploadId)
+    .maybeSingle();
+  if (!upload || upload.student_id !== user.id) {
+    throw new Error("アップロードが見つかりません。");
+  }
+  if (upload.status !== "ready") {
+    throw new Error("この画像はまだ認識結果を確認できる状態ではありません。");
+  }
+
+  const message = String(formData.get("message") ?? "").trim();
+  if (!message) {
+    throw new Error("発言を入力してください。");
+  }
+
+  await postStudentMessageAndRespond(admin, courseId, user.id, message, {
+    kind: "handwriting",
+    imagePath: upload.image_path,
+  });
+
+  await admin.from("handwriting_uploads").update({ status: "confirmed" }).eq("id", uploadId);
+}
+
+// F12: 認識結果を使わず取り消す(画像も削除する)。
+export async function discardHandwritingAction(courseId: string, uploadId: string) {
+  const { user } = await requireRole("student");
+  const admin = createAdminClient();
+
+  const { data: upload } = await admin
+    .from("handwriting_uploads")
+    .select("id, student_id, image_path")
+    .eq("id", uploadId)
+    .maybeSingle();
+  if (!upload || upload.student_id !== user.id) {
+    throw new Error("アップロードが見つかりません。");
+  }
+
+  await admin.storage.from("handwriting").remove([upload.image_path]);
+  await admin.from("handwriting_uploads").delete().eq("id", uploadId);
 
   revalidatePath(`/learn/${courseId}`);
 }
