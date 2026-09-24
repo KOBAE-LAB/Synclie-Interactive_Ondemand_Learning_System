@@ -77,8 +77,15 @@ export default async function CourseDetailPage({
       {course.subject && <p className="mt-1 text-sm text-zinc-500">{course.subject}</p>}
 
       <Link
-        href={`/courses/${courseId}/personas`}
+        href={`/courses/${courseId}/dashboard`}
         className="mt-4 inline-block text-sm text-zinc-500 hover:underline"
+      >
+        教師ダッシュボード(F14)→
+      </Link>
+      <br />
+      <Link
+        href={`/courses/${courseId}/personas`}
+        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
       >
         ペルソナ設定(F03/F04)→
       </Link>

@@ -147,7 +147,8 @@ export default async function StudentsPage({
           return (
             <li
               key={studentId}
-              className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              id={studentId}
+              className="rounded-md border border-zinc-200 px-4 py-3 text-sm scroll-mt-6 dark:border-zinc-800"
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="font-medium text-zinc-950 dark:text-zinc-50">

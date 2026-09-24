@@ -160,6 +160,20 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     `[courseId]/` で資料(PDF/Word/PPT/テキスト/動画字幕/URL)をアップロードする。
     同じ画面にF02(RAG生成)の「生成する/再生成」ボタンとステータス表示もある
     (`actions.ts` の `generateMaterialRagAction` / `generateAllPendingRagAction`)
+    - `[courseId]/dashboard/` — F14(教師ダッシュボード)。「参加状況、つまずき、
+      擬似メンバーの挙動を確認し、学級・個人の指導計画に活かす」(要件定義書4章)。
+      新規のAI呼び出しは一切せず、既存の蓄積データ(dialogue_turns/submissions/
+      argument_evaluations/student_profiles)を集計するだけの読み取り専用画面
+      (呼び出し回数を増やさない方針、要件定義書10章)。学習者一覧は
+      `learning_sessions`基準(students/の「提出物がある学習者」より広く、
+      対話はしたが未提出の学習者も拾う)。学習者ごとに発言数・提出数・最終活動日時・
+      論証評価(F20/F24共有コンポーネント)の平均点・(生成済みなら)F09の「課題」を表示し、
+      平均点が低い、または対話はあるが未提出の学習者を「つまずき」としてハイライトする。
+      擬似メンバーの挙動はF20と同じデータをペルソナ単位に集計して要約表示する。
+      「状況を確認するだけで終わらせず、次に何に取り組むかをその場で決められる形にする」
+      (要件定義書7章)ため、各行から`students/#{studentId}`(F09/F11の判断)や
+      `conformity/`(F20の詳細)へ直接リンクする(students/の各`<li>`に
+      `id={studentId}`を付与し、アンカーで深リンクできるようにした)
     - `[courseId]/personas/` — F03(ペルソナ設定)+F04(教師による擬似メンバー設定)。
       段階1では教師設定型(`tier='teacher_defined'`)のみを教師が作成・編集・削除する。
       プロフィール/立場と目標/行動ルールを入力するフォームは`persona-form.tsx`を作成・編集で共用。
