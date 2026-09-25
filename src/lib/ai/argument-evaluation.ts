@@ -55,3 +55,43 @@ ${materialText}`;
 
   return response.output_parsed as ArgumentEvaluation;
 }
+
+/**
+ * F24: 討論のAIジャッジ・評価。evaluateArgument()と同じ評価軸(スキーマ)・モデルを
+ * 共有するが、「直近の発言」ではなく議論全体を通してジャッジする点が異なるため、
+ * プロンプトだけ変えた別関数にしている。
+ *
+ * 「対立する立場のペルソナとの議論において、学習者の発言を論理構成・根拠の質・反論への
+ * 応答などの観点で評価し、自己評価と教師評価の材料にする」(要件定義書4章)。
+ * この評価は最終ではなく、学習者の自己評価(F08)・教師評価の材料にとどめる
+ * (非機能要件「AIが学習者の考えを代替しない」)。
+ *
+ * @param materialText 教材・単元資料のテキスト
+ * @param transcriptText 議論全体の記録(学習者・擬似メンバー双方の発言を含む)
+ */
+export async function judgeDiscussion(
+  materialText: string,
+  transcriptText: string,
+): Promise<ArgumentEvaluation> {
+  const judgeSystemPrompt = `あなたは討論を通しての学習者の発言をジャッジする採点者です。次の資料の範囲で、
+学習者が議論の最初から最後までを通じて、論理構成・根拠の質・反論への応答をどれだけ
+できていたかを0〜5点で評価してください。単発の発言ではなく、議論全体の流れを見て判断してください。
+点数はあくまで学習者の自己評価と教師の評価の材料であり、最終評価ではありません。
+
+【資料】
+${materialText}`;
+
+  const response = await openai.responses.parse({
+    model: MODEL_JUDGE,
+    input: [
+      { role: "system", content: judgeSystemPrompt },
+      {
+        role: "user",
+        content: `次の議論の記録全体を通して、学習者の発言をジャッジしてください。\n\n${transcriptText}`,
+      },
+    ],
+    text: { format: zodTextFormat(ArgumentEvaluationSchema, "argument_evaluation") },
+  });
+
+  return response.output_parsed as ArgumentEvaluation;
+}

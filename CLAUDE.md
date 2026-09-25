@@ -63,7 +63,8 @@
   詳細は8章の`src/app/learn/dashboard/`の説明を参照
 - **F24 討論のAIジャッジ・評価**(必須/段階2): 論理構成/根拠の質/反論への応答で評価。
   **非最終**の評価であり、学習者の自己評価・教師評価の材料にとどめる
-  (「AIが学習者の考えを代替しない。評価の最終判断は教師と学習者に残す」)
+  (「AIが学習者の考えを代替しない。評価の最終判断は教師と学習者に残す」)。
+  実装済み。詳細は5章「論証評価」共有コンポーネントを参照
 
 ## 5. 「論証評価」共有コンポーネント
 
@@ -80,6 +81,16 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
 突き合わせて`unwarranted_conformity`(根拠なく同調したか)を`argument_evaluations`に記録し、
 `courses/[courseId]/conformity/`でペルソナ別に集計・一覧できる(ペルソナの設定を変えて
 比較するための画面)。評価呼び出しが失敗しても対話自体は止めない(計測は付加情報のため)。
+
+F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同じ
+`ArgumentEvaluationSchema`・同じモデルを使うが、プロンプトが「直近の発言」ではなく
+「議論全体を通して」ジャッジする内容になっている別関数)を使う。F06(成果の提出)を
+議論が一区切りついたタイミングとみなし、`learn/[courseId]/actions.ts`の
+`judgeDiscussionAction`が、その提出物につながる対話セッション全体の`dialogue_turns`を
+書き起こして渡し、結果を`discussion_judgments`(1提出物1件、再ジャッジで上書き)に保存する。
+学習者向け(`learn/[courseId]/page.tsx`)・教師向け(`courses/[courseId]/submissions/`)の
+両方に表示され、「この評価は最終ではない」という注記を必ず添える
+(非機能要件「AIが学習者の考えを代替しない。評価の最終判断は教師と学習者に残す」)。
 
 ## 6. 教材データの方針
 
@@ -128,7 +139,7 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     学習者に紐づくテーブルを追加するたびに、ここも合わせて更新すること(F12実装時に
     手書き画像のStorageファイル削除と、抜けていたF11の`personalization_suggestions`削除を
     追加で拾った。F13実装時に音声ファイルの削除も同様に追加した。F23実装時に
-    `study_plan_items`削除も追加した)
+    `study_plan_items`削除も追加した。F24実装時に`discussion_judgments`削除も追加した)
   - `src/app/learn/dashboard/` — F23(生徒ダッシュボード)。「学習者が自分の学習履歴
     (対話ログ、成果物、フィードバック、振り返り)を一覧で確認し、AIの提案をもとに次に
     取り組む学習計画を立てられる」(要件定義書4章)。F14(教師ダッシュボード)と同じ方針で、
@@ -366,6 +377,9 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     SSOのsubject idを別キーとして持たせる
   - `0021_student_dashboard.sql` — F23用。学習者が自分で追加・完了・削除できる
     学習計画のTODOリスト`study_plan_items`を追加(授業への紐づけは任意)
+  - `0022_discussion_judgment.sql` — F24用。`submissions.judgment_status`/
+    `judgment_error`(F07のfeedback_status/feedback_errorと同じパターン)と、
+    議論全体を通してのAIジャッジ結果を1提出物1件で保存する`discussion_judgments`を追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

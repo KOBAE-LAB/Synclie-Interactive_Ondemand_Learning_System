@@ -14,6 +14,7 @@ import {
   uploadAudioAction,
   confirmAudioAction,
   discardAudioAction,
+  judgeDiscussionAction,
 } from "./actions";
 
 interface DialogueTurnRow {
@@ -44,12 +45,16 @@ interface AudioUploadRow {
 
 type FeedbackStatus = "pending" | "processing" | "done" | "failed";
 
+type JudgmentStatus = "pending" | "processing" | "done" | "failed";
+
 interface SubmissionRow {
   id: string;
   content: string;
   created_at: string;
   feedback_status: FeedbackStatus;
   feedback_error: string | null;
+  judgment_status: JudgmentStatus;
+  judgment_error: string | null;
 }
 
 interface FeedbackRow {
@@ -61,10 +66,25 @@ interface FeedbackRow {
   material_reference: string;
 }
 
+interface JudgmentRow {
+  submission_id: string;
+  logic_structure: number;
+  evidence_quality: number;
+  rebuttal_response: number;
+  summary_comment: string;
+}
+
 const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
   pending: "未生成",
   processing: "生成中",
   done: "生成済み",
+  failed: "失敗",
+};
+
+const JUDGMENT_STATUS_LABELS: Record<JudgmentStatus, string> = {
+  pending: "未実施",
+  processing: "ジャッジ中",
+  done: "実施済み",
   failed: "失敗",
 };
 
@@ -165,13 +185,14 @@ export default async function LearnCourseSessionPage({
 
   const { data: submissionRows } = await admin
     .from("submissions")
-    .select("id, content, created_at, feedback_status, feedback_error")
+    .select("id, content, created_at, feedback_status, feedback_error, judgment_status, judgment_error")
     .eq("course_id", courseId)
     .eq("student_id", user.id)
     .order("created_at", { ascending: false });
   const submissions = (submissionRows ?? []) as SubmissionRow[];
 
   const feedbackBySubmission = new Map<string, FeedbackRow[]>();
+  const judgmentBySubmission = new Map<string, JudgmentRow>();
   if (submissions.length > 0) {
     const { data: feedbackRows } = await admin
       .from("submission_feedback")
@@ -184,6 +205,18 @@ export default async function LearnCourseSessionPage({
       const list = feedbackBySubmission.get(row.submission_id) ?? [];
       list.push(row);
       feedbackBySubmission.set(row.submission_id, list);
+    }
+
+    // F24: 討論のAIジャッジ。F20と同じ論証評価の枠組みを、議論全体を通して適用したもの。
+    const { data: judgmentRows } = await admin
+      .from("discussion_judgments")
+      .select("submission_id, logic_structure, evidence_quality, rebuttal_response, summary_comment")
+      .in(
+        "submission_id",
+        submissions.map((s) => s.id),
+      );
+    for (const row of (judgmentRows ?? []) as JudgmentRow[]) {
+      judgmentBySubmission.set(row.submission_id, row);
     }
   }
 
@@ -488,8 +521,14 @@ export default async function LearnCourseSessionPage({
                 courseId,
                 submission.id,
               );
+              const boundJudgeDiscussionAction = judgeDiscussionAction.bind(
+                null,
+                courseId,
+                submission.id,
+              );
               const feedbackItems = feedbackBySubmission.get(submission.id) ?? [];
               const reflection = reflectionBySubmission.get(submission.id);
+              const judgment = judgmentBySubmission.get(submission.id);
 
               return (
                 <li
@@ -515,11 +554,45 @@ export default async function LearnCourseSessionPage({
                       </form>
                     </div>
                   </div>
+                  <div className="mt-1 flex items-center justify-end gap-2">
+                    <span className="text-xs text-zinc-400">
+                      AIジャッジ(F24): {JUDGMENT_STATUS_LABELS[submission.judgment_status]}
+                    </span>
+                    <form action={boundJudgeDiscussionAction}>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        {submission.judgment_status === "done" ? "再ジャッジする" : "AIジャッジを受ける"}
+                      </button>
+                    </form>
+                  </div>
 
                   {submission.feedback_status === "failed" && submission.feedback_error && (
                     <p className="mt-2 text-xs text-red-600 dark:text-red-400">
                       {submission.feedback_error}
                     </p>
+                  )}
+                  {submission.judgment_status === "failed" && submission.judgment_error && (
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                      {submission.judgment_error}
+                    </p>
+                  )}
+
+                  {judgment && (
+                    <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                      <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        AIジャッジ(F24): 議論全体を通しての評価
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        論理構成 {judgment.logic_structure}/5 ・ 根拠の質 {judgment.evidence_quality}/5 ・
+                        反論への応答 {judgment.rebuttal_response}/5
+                      </p>
+                      <p className="mt-1">{judgment.summary_comment}</p>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        この評価は最終ではありません。自己評価や教師の評価の参考にしてください。
+                      </p>
+                    </div>
                   )}
 
                   {feedbackItems.length > 0 && (

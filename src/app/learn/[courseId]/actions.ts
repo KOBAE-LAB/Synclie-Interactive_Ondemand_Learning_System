@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { searchMaterialChunks } from "@/lib/rag/search";
 import { askPersona, type PersonaProfile, type ChatTurn } from "@/lib/ai/persona";
 import { generateOutcomeFeedback } from "@/lib/ai/feedback";
-import { evaluateArgument } from "@/lib/ai/argument-evaluation";
+import { evaluateArgument, judgeDiscussion } from "@/lib/ai/argument-evaluation";
 import { recognizeHandwriting } from "@/lib/ai/handwriting";
 import { transcribeAudio } from "@/lib/ai/audio";
 
@@ -668,6 +668,90 @@ export async function generateFeedbackAction(courseId: string, submissionId: str
     await admin
       .from("submissions")
       .update({ feedback_status: "failed", feedback_error: message })
+      .eq("id", submissionId);
+  }
+
+  revalidatePath(`/learn/${courseId}`);
+}
+
+// F24: 討論のAIジャッジ・評価。F20と同じ「論証評価」の枠組み(論理構成/根拠の質/
+// 反論への応答)を使うが、直近の発言ではなく、この成果(F06)につながる対話セッション
+// 全体を通してジャッジする(src/lib/ai/argument-evaluation.tsのjudgeDiscussion)。
+// 「AIが学習者の考えを代替しない」ため、この評価は最終ではなく、学習者の自己評価(F08)・
+// 教師評価の材料にとどまる。再ジャッジ時は既存のdiscussion_judgmentsを削除してから
+// 作り直す(F02/F07と同じidempotentな方針)。
+export async function judgeDiscussionAction(courseId: string, submissionId: string) {
+  const { user } = await requireRole("student");
+  const admin = createAdminClient();
+
+  const { data: submission } = await admin
+    .from("submissions")
+    .select("id, course_id, student_id, content, session_id")
+    .eq("id", submissionId)
+    .maybeSingle();
+  if (!submission || submission.course_id !== courseId || submission.student_id !== user.id) {
+    throw new Error("成果が見つかりません。");
+  }
+
+  await admin
+    .from("submissions")
+    .update({ judgment_status: "processing", judgment_error: null })
+    .eq("id", submissionId);
+
+  try {
+    if (!submission.session_id) {
+      throw new Error("この成果に紐づく対話セッションが見つかりません。");
+    }
+
+    const { data: turnRows } = await admin
+      .from("dialogue_turns")
+      .select("speaker_type, content, created_at")
+      .eq("session_id", submission.session_id)
+      .order("created_at", { ascending: true });
+    if (!turnRows || turnRows.length === 0) {
+      throw new Error("議論の記録がまだありません。擬似メンバーと議論してから提出してください。");
+    }
+
+    const transcriptText = turnRows
+      .map((turn) => `${turn.speaker_type === "student" ? "学習者" : "擬似メンバー"}: ${turn.content}`)
+      .join("\n");
+
+    const materialChunks = await searchMaterialChunks(courseId, submission.content);
+    const materialText =
+      materialChunks.length > 0
+        ? materialChunks.map((chunk, i) => `[資料${i + 1}]\n${chunk}`).join("\n\n")
+        : "(この議論に関連する資料は見つからなかった。)";
+
+    const judgment = await judgeDiscussion(materialText, transcriptText);
+
+    const { error: deleteError } = await admin
+      .from("discussion_judgments")
+      .delete()
+      .eq("submission_id", submissionId);
+    if (deleteError) {
+      throw new Error(`既存のジャッジの削除に失敗しました: ${deleteError.message}`);
+    }
+
+    const { error: insertError } = await admin.from("discussion_judgments").insert({
+      submission_id: submissionId,
+      logic_structure: judgment.論理構成,
+      evidence_quality: judgment.根拠の質,
+      rebuttal_response: judgment.反論への応答,
+      summary_comment: judgment.総評,
+    });
+    if (insertError) {
+      throw new Error(`ジャッジの保存に失敗しました: ${insertError.message}`);
+    }
+
+    await admin
+      .from("submissions")
+      .update({ judgment_status: "done", judgment_error: null })
+      .eq("id", submissionId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "不明なエラーが発生しました。";
+    await admin
+      .from("submissions")
+      .update({ judgment_status: "failed", judgment_error: message })
       .eq("id", submissionId);
   }
 

@@ -38,6 +38,7 @@ export async function deleteMyDataAction() {
   if (submissionIds.length > 0) {
     await admin.from("submission_feedback").delete().in("submission_id", submissionIds);
     await admin.from("reflections").delete().in("submission_id", submissionIds);
+    await admin.from("discussion_judgments").delete().in("submission_id", submissionIds);
   }
   await admin.from("submissions").delete().eq("student_id", user.id);
 

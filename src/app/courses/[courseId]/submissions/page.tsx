@@ -13,6 +13,14 @@ interface SubmissionRow {
   feedback_error: string | null;
 }
 
+interface JudgmentRow {
+  submission_id: string;
+  logic_structure: number;
+  evidence_quality: number;
+  rebuttal_response: number;
+  summary_comment: string;
+}
+
 interface FeedbackRow {
   id: string;
   submission_id: string;
@@ -60,6 +68,7 @@ export default async function SubmissionsReviewPage({
   const studentNames = new Map<string, string>();
   const feedbackBySubmission = new Map<string, FeedbackRow[]>();
   const reflectionBySubmission = new Map<string, ReflectionRow>();
+  const judgmentBySubmission = new Map<string, JudgmentRow>();
 
   if (submissions.length > 0) {
     const studentIds = [...new Set(submissions.map((s) => s.student_id))];
@@ -97,6 +106,18 @@ export default async function SubmissionsReviewPage({
     for (const row of (reflectionRows ?? []) as ReflectionRow[]) {
       reflectionBySubmission.set(row.submission_id, row);
     }
+
+    // F24: 討論のAIジャッジ。教師はここで確認できるが修正はしない(最終評価は教師自身が行う)。
+    const { data: judgmentRows } = await admin
+      .from("discussion_judgments")
+      .select("submission_id, logic_structure, evidence_quality, rebuttal_response, summary_comment")
+      .in(
+        "submission_id",
+        submissions.map((s) => s.id),
+      );
+    for (const row of (judgmentRows ?? []) as JudgmentRow[]) {
+      judgmentBySubmission.set(row.submission_id, row);
+    }
   }
 
   return (
@@ -115,6 +136,7 @@ export default async function SubmissionsReviewPage({
         {submissions.map((submission) => {
           const feedbackItems = feedbackBySubmission.get(submission.id) ?? [];
           const reflection = reflectionBySubmission.get(submission.id);
+          const judgment = judgmentBySubmission.get(submission.id);
           return (
             <li
               key={submission.id}
@@ -180,6 +202,22 @@ export default async function SubmissionsReviewPage({
                       </form>
                     );
                   })}
+                </div>
+              )}
+
+              {judgment && (
+                <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 text-xs dark:border-zinc-800">
+                  <p className="font-medium text-zinc-700 dark:text-zinc-300">
+                    AIジャッジ(F24): 議論全体を通しての評価
+                  </p>
+                  <p className="text-zinc-500">
+                    論理構成 {judgment.logic_structure}/5 ・ 根拠の質 {judgment.evidence_quality}/5 ・
+                    反論への応答 {judgment.rebuttal_response}/5
+                  </p>
+                  <p>{judgment.summary_comment}</p>
+                  <p className="text-zinc-400">
+                    この評価は最終ではありません。学習評価の参考にしてください。
+                  </p>
                 </div>
               )}
 
