@@ -163,6 +163,7 @@ export default async function LibraryPage() {
                     name="targetCourseId"
                     required
                     defaultValue=""
+                    aria-label="複製先の授業"
                     className="rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                   >
                     <option value="" disabled>
@@ -230,6 +231,7 @@ export default async function LibraryPage() {
                     name="targetCourseId"
                     required
                     defaultValue=""
+                    aria-label="複製先の授業"
                     className="rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                   >
                     <option value="" disabled>

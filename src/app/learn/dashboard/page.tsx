@@ -195,13 +195,21 @@ export default async function StudentDashboardPage() {
         上のAIの提案や振り返りを参考に、次に取り組むことを自分で書き留めておける。
       </p>
       <form action={addStudyPlanItemAction} className="mt-3 flex gap-2">
+        <label htmlFor="plan-content" className="sr-only">
+          次に取り組むこと
+        </label>
         <input
+          id="plan-content"
           name="content"
           required
           placeholder="次に取り組むこと"
           className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
+        <label htmlFor="plan-course" className="sr-only">
+          関連する授業
+        </label>
         <select
+          id="plan-course"
           name="courseId"
           defaultValue=""
           className="rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"

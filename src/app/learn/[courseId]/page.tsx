@@ -299,7 +299,11 @@ export default async function LearnCourseSessionPage({
       </div>
 
       <form action={boundSendAction} className="mt-6 flex gap-2">
+        <label htmlFor="chat-message" className="sr-only">
+          発言
+        </label>
         <textarea
+          id="chat-message"
           name="message"
           required
           rows={2}
@@ -382,16 +386,18 @@ export default async function LearnCourseSessionPage({
                 )}
                 {upload.status === "ready" && (
                   <form action={boundConfirmAction} className="space-y-2">
-                    <p className="text-xs text-zinc-500">
-                      文字起こし結果です。内容を確認・修正してから送信してください。
-                    </p>
-                    <textarea
-                      name="message"
-                      required
-                      rows={3}
-                      defaultValue={upload.transcribed_text ?? ""}
-                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                    />
+                    <label className="block space-y-2">
+                      <span className="block text-xs text-zinc-500">
+                        文字起こし結果です。内容を確認・修正してから送信してください。
+                      </span>
+                      <textarea
+                        name="message"
+                        required
+                        rows={3}
+                        defaultValue={upload.transcribed_text ?? ""}
+                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                    </label>
                     <div className="flex gap-2">
                       <button
                         type="submit"
@@ -448,16 +454,18 @@ export default async function LearnCourseSessionPage({
                 )}
                 {upload.status === "ready" && (
                   <form action={boundConfirmAction} className="space-y-2">
-                    <p className="text-xs text-zinc-500">
-                      読み取り結果です。内容を確認・修正してから送信してください。
-                    </p>
-                    <textarea
-                      name="message"
-                      required
-                      rows={3}
-                      defaultValue={upload.recognized_text ?? ""}
-                      className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                    />
+                    <label className="block space-y-2">
+                      <span className="block text-xs text-zinc-500">
+                        読み取り結果です。内容を確認・修正してから送信してください。
+                      </span>
+                      <textarea
+                        name="message"
+                        required
+                        rows={3}
+                        defaultValue={upload.recognized_text ?? ""}
+                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                    </label>
                     <div className="flex gap-2">
                       <button
                         type="submit"
@@ -493,7 +501,11 @@ export default async function LearnCourseSessionPage({
         </p>
 
         <form action={boundSubmitOutcomeAction} className="mt-4 space-y-3">
+          <label htmlFor="outcome-content" className="sr-only">
+            成果の内容
+          </label>
           <textarea
+            id="outcome-content"
             name="content"
             required
             rows={4}
@@ -624,30 +636,39 @@ export default async function LearnCourseSessionPage({
                         振り返り(F08){reflection && " (記入済み・編集できます)"}
                       </p>
                       <form action={boundSaveReflectionAction} className="mt-2 space-y-2">
-                        <textarea
-                          name="whatLearned"
-                          required
-                          rows={2}
-                          placeholder="学んだこと"
-                          defaultValue={reflection?.what_learned}
-                          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                        />
-                        <textarea
-                          name="whatConfused"
-                          required
-                          rows={2}
-                          placeholder="迷ったこと"
-                          defaultValue={reflection?.what_confused}
-                          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                        />
-                        <textarea
-                          name="nextGoal"
-                          required
-                          rows={2}
-                          placeholder="次にやりたいこと"
-                          defaultValue={reflection?.next_goal}
-                          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                        />
+                        <label className="block">
+                          <span className="sr-only">学んだこと</span>
+                          <textarea
+                            name="whatLearned"
+                            required
+                            rows={2}
+                            placeholder="学んだこと"
+                            defaultValue={reflection?.what_learned}
+                            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="sr-only">迷ったこと</span>
+                          <textarea
+                            name="whatConfused"
+                            required
+                            rows={2}
+                            placeholder="迷ったこと"
+                            defaultValue={reflection?.what_confused}
+                            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="sr-only">次にやりたいこと</span>
+                          <textarea
+                            name="nextGoal"
+                            required
+                            rows={2}
+                            placeholder="次にやりたいこと"
+                            defaultValue={reflection?.next_goal}
+                            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                          />
+                        </label>
                         <label className="flex items-center gap-2 text-xs text-zinc-500">
                           <input
                             type="checkbox"

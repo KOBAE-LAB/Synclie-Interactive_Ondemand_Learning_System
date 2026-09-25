@@ -36,7 +36,11 @@ export default async function OrganizationPage() {
           className="mt-6 space-y-3 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800"
         >
           <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">組織に参加する</h2>
+          <label htmlFor="organization-name" className="sr-only">
+            組織名
+          </label>
           <input
+            id="organization-name"
             name="name"
             placeholder="組織名(例: ○○市立△△小学校)"
             required
@@ -133,7 +137,11 @@ export default async function OrganizationPage() {
           組織をまたぐ共有リクエストを判断する人。同じ組織の教師なら誰でも変更できる。
         </p>
         <form action={setApproverAction} className="mt-3 flex items-center gap-2">
+          <label htmlFor="approver-id" className="sr-only">
+            新しい承認者
+          </label>
           <select
+            id="approver-id"
             name="approverId"
             defaultValue=""
             className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"

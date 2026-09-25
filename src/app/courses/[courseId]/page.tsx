@@ -144,7 +144,11 @@ export default async function CourseDetailPage({
       >
         <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">資料を追加</h2>
 
+        <label htmlFor="material-kind" className="sr-only">
+          資料の種類
+        </label>
         <select
+          id="material-kind"
           name="kind"
           required
           defaultValue=""
@@ -160,21 +164,33 @@ export default async function CourseDetailPage({
           ))}
         </select>
 
+        <label htmlFor="material-title" className="sr-only">
+          資料のタイトル
+        </label>
         <input
+          id="material-title"
           name="title"
           placeholder="資料のタイトル"
           required
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
 
+        <label htmlFor="material-url" className="sr-only">
+          URL
+        </label>
         <input
+          id="material-url"
           name="url"
           placeholder="URL(種類が「URL」の場合のみ)"
           type="url"
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
 
+        <label htmlFor="material-file" className="sr-only">
+          ファイル
+        </label>
         <input
+          id="material-file"
           name="file"
           type="file"
           className="w-full text-sm text-zinc-700 dark:text-zinc-300"

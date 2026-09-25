@@ -130,20 +130,26 @@ export default async function PersonaAuditPage({
               )}
 
               <form action={boundUpdateAction} className="mt-2 space-y-2">
-                <textarea
-                  name="content"
-                  required
-                  rows={3}
-                  defaultValue={turn.content}
-                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                />
-                <textarea
-                  name="teacherNote"
-                  rows={2}
-                  placeholder="確認メモ(任意): 何が問題だったか、何を直したか"
-                  defaultValue={turn.teacher_note ?? ""}
-                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                />
+                <label className="block">
+                  <span className="sr-only">発言の内容</span>
+                  <textarea
+                    name="content"
+                    required
+                    rows={3}
+                    defaultValue={turn.content}
+                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                </label>
+                <label className="block">
+                  <span className="sr-only">確認メモ</span>
+                  <textarea
+                    name="teacherNote"
+                    rows={2}
+                    placeholder="確認メモ(任意): 何が問題だったか、何を直したか"
+                    defaultValue={turn.teacher_note ?? ""}
+                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                </label>
                 <label className="flex items-center gap-2 text-xs text-zinc-500">
                   <input type="checkbox" name="flagged" defaultChecked={turn.flagged_by_teacher} />
                   不適切・不正確な発言としてフラグを立てる

@@ -46,14 +46,22 @@ export default async function EditCriterionPage({
         action={boundUpdateAction}
         className="mt-8 space-y-3 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800"
       >
+        <label htmlFor="criteria-label" className="sr-only">
+          観点の名前
+        </label>
         <input
+          id="criteria-label"
           name="label"
           placeholder="観点の名前(例: 根拠の明確さ)"
           required
           defaultValue={criterion.label}
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
+        <label htmlFor="criteria-description" className="sr-only">
+          説明
+        </label>
         <textarea
+          id="criteria-description"
           name="description"
           placeholder="説明(任意)"
           rows={2}

@@ -55,13 +55,21 @@ export default async function EvaluationCriteriaPage({
           新しい観点を追加
         </h2>
         <form action={boundCreateAction} className="space-y-3">
+          <label htmlFor="criteria-label" className="sr-only">
+            観点の名前
+          </label>
           <input
+            id="criteria-label"
             name="label"
             placeholder="観点の名前(例: 根拠の明確さ)"
             required
             className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
+          <label htmlFor="criteria-description" className="sr-only">
+            説明
+          </label>
           <textarea
+            id="criteria-description"
             name="description"
             placeholder="説明(任意。例: 主張を裏付ける事実や資料が示されているか)"
             rows={2}

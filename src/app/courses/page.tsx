@@ -38,18 +38,30 @@ export default async function CoursesPage() {
         className="mt-8 space-y-3 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800"
       >
         <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">新しい授業を作成</h2>
+        <label htmlFor="course-title" className="sr-only">
+          授業名
+        </label>
         <input
+          id="course-title"
           name="title"
           placeholder="授業名(例: 情報活用能力の育成)"
           required
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
+        <label htmlFor="course-subject" className="sr-only">
+          教科
+        </label>
         <input
+          id="course-subject"
           name="subject"
           placeholder="教科(任意)"
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
+        <label htmlFor="course-mode" className="sr-only">
+          授業の形式
+        </label>
         <select
+          id="course-mode"
           name="mode"
           defaultValue="group"
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
