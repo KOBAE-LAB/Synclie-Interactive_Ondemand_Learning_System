@@ -85,7 +85,13 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
 ## 7. 技術スタック(段階1)
 
 - **フロントエンド/バックエンド**: Next.js (TypeScript, App Router)。API RoutesとServer Actionsを併用。
-- **DB/ベクトル検索/ストレージ**: Supabase (Postgres + pgvector)
+- **DB/ベクトル検索/ストレージ**: Supabase (Postgres + pgvector)。プロジェクトは東京リージョン
+  (ap-northeast-1)、組織KOBAE-LAB。2026-09-25に元プロジェクト(ap-southeast-2)から
+  移行した(旧プロジェクトは「【KOBAE-LAB】Synclie - IIL (旧)」にリネームして保持)。
+  `supabase/config.toml`があるためSupabase CLIでの操作(`supabase link` /
+  `supabase db push` / `supabase db advisors`など)が使える。テーブル・Storageの
+  一括移行に使った`scripts/migrate-supabase.mjs`(export/importモード)は、
+  将来また別プロジェクトへ移す場合の参考として残してある
 - **認証**: Auth.js (NextAuth v5)。段階1は簡易ログイン → 段階2でSSO(F22)。
   `src/auth.ts` にプロバイダーを追加していく。
 - **ホスティング**: Vercel(アプリ) + Supabase(データ)
