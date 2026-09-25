@@ -1,0 +1,13 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="積極的な討論者">
+  <circle cx="100" cy="100" r="100" fill="#fca5a5"/>
+  <circle cx="52" cy="122" r="10" fill="#e8b48a"/>
+  <circle cx="148" cy="122" r="10" fill="#e8b48a"/>
+  <circle cx="100" cy="120" r="52" fill="#e8b48a"/>
+  <ellipse cx="100" cy="82" rx="56" ry="34" fill="#2b2b2b"/>
+  <circle cx="82" cy="114" r="5" fill="#292524"/>
+  <circle cx="118" cy="114" r="5" fill="#292524"/>
+  <line x1="72" y1="100" x2="88" y2="94" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+      <line x1="112" y1="94" x2="128" y2="100" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+  <ellipse cx="100" cy="142" rx="12" ry="9" fill="#292524"/>
+  
+</svg>

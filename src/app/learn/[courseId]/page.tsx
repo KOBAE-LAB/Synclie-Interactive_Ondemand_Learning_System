@@ -129,6 +129,7 @@ export default async function LearnCourseSessionPage({
 
   let turns: DialogueTurnRow[] = [];
   const personaNames = new Map<string, string>();
+  const personaAvatarPaths = new Map<string, string>();
   let pendingHandwritingUploads: HandwritingUploadRow[] = [];
   let pendingAudioUploads: AudioUploadRow[] = [];
 
@@ -142,9 +143,30 @@ export default async function LearnCourseSessionPage({
 
     const personaIds = [...new Set(turns.map((t) => t.persona_id).filter((id): id is string => !!id))];
     if (personaIds.length > 0) {
-      const { data: personas } = await admin.from("personas").select("id, name").in("id", personaIds);
+      const { data: personas } = await admin
+        .from("personas")
+        .select("id, name, avatar_id")
+        .in("id", personaIds);
+      const avatarIds = [
+        ...new Set((personas ?? []).map((p) => p.avatar_id).filter((id): id is string => !!id)),
+      ];
+      const avatarPathById = new Map<string, string>();
+      if (avatarIds.length > 0) {
+        // F25: 発言に添えるアバター画像。ペルソナ設定画面(F04)で推薦・確定済みのものだけ表示する。
+        const { data: avatarOptions } = await admin
+          .from("avatar_options")
+          .select("id, file_path")
+          .in("id", avatarIds);
+        for (const option of avatarOptions ?? []) {
+          avatarPathById.set(option.id, option.file_path);
+        }
+      }
       for (const persona of personas ?? []) {
         personaNames.set(persona.id, persona.name);
+        if (persona.avatar_id) {
+          const filePath = avatarPathById.get(persona.avatar_id);
+          if (filePath) personaAvatarPaths.set(persona.id, filePath);
+        }
       }
     }
 
@@ -279,7 +301,16 @@ export default async function LearnCourseSessionPage({
               }`}
             >
               {turn.speaker_type === "persona" && (
-                <p className="mb-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  {turn.persona_id && personaAvatarPaths.get(turn.persona_id) && (
+                    <img
+                      src={personaAvatarPaths.get(turn.persona_id)}
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                  )}
                   {turn.persona_id ? (personaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー"}(AI)
                 </p>
               )}

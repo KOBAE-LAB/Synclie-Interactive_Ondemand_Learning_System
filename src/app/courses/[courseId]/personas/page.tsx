@@ -9,11 +9,15 @@ import {
   activatePersonaAction,
   deactivatePersonaAction,
   generateEvolvedPersonasAction,
+  recommendPersonaAvatarAction,
+  setPersonaAvatarAction,
   sharePersonaAction,
   unsharePersonaAction,
   type PersonaStatus,
 } from "./actions";
 import { PersonaForm } from "./persona-form";
+
+type AvatarStatus = "pending" | "done" | "failed";
 
 interface PersonaRow {
   id: string;
@@ -23,7 +27,22 @@ interface PersonaRow {
   profile: { role?: string } | null;
   origin_note: string | null;
   shared_at: string | null;
+  avatar_id: string | null;
+  avatar_status: AvatarStatus;
+  avatar_error: string | null;
 }
+
+interface AvatarOptionRow {
+  id: string;
+  file_path: string;
+  label: string;
+}
+
+const AVATAR_STATUS_LABELS: Record<AvatarStatus, string> = {
+  pending: "未推薦",
+  done: "推薦済み",
+  failed: "推薦に失敗",
+};
 
 interface CorpusEntryRow {
   id: string;
@@ -71,7 +90,7 @@ export default async function PersonasPage({
 
   const { data: personas } = await admin
     .from("personas")
-    .select("id, name, tier, status, profile, origin_note, shared_at")
+    .select("id, name, tier, status, profile, origin_note, shared_at, avatar_id, avatar_status, avatar_error")
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
 
@@ -80,6 +99,14 @@ export default async function PersonasPage({
     .select("id, topic, misconception, effective_question")
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
+
+  // F25: アバター候補プール(全授業共通)。ラベルの五十音順で選択肢を並べる。
+  const { data: avatarOptions } = await admin
+    .from("avatar_options")
+    .select("id, file_path, label")
+    .order("label", { ascending: true });
+  const avatarOptionRows = (avatarOptions ?? []) as AvatarOptionRow[];
+  const avatarById = new Map(avatarOptionRows.map((a) => [a.id, a]));
 
   const rows = (personas ?? []) as PersonaRow[];
   const activeCount = rows.filter((p) => p.status === "active").length;
@@ -157,6 +184,13 @@ export default async function PersonasPage({
           const boundDeactivateAction = deactivatePersonaAction.bind(null, courseId, persona.id);
           const boundShareAction = sharePersonaAction.bind(null, courseId, persona.id);
           const boundUnshareAction = unsharePersonaAction.bind(null, courseId, persona.id);
+          const boundRecommendAvatarAction = recommendPersonaAvatarAction.bind(
+            null,
+            courseId,
+            persona.id,
+          );
+          const boundSetAvatarAction = setPersonaAvatarAction.bind(null, courseId, persona.id);
+          const avatar = persona.avatar_id ? avatarById.get(persona.avatar_id) : undefined;
 
           return (
             <li
@@ -166,14 +200,32 @@ export default async function PersonasPage({
               <div className="flex items-center justify-between gap-3">
                 <Link
                   href={`/courses/${courseId}/personas/${persona.id}`}
-                  className="min-w-0 hover:underline"
+                  className="flex min-w-0 items-center gap-2 hover:underline"
                 >
-                  <span className="font-medium text-zinc-950 dark:text-zinc-50">{persona.name}</span>
-                  {persona.profile?.role && (
-                    <span className="ml-2 text-zinc-500">({persona.profile.role})</span>
+                  {avatar ? (
+                    <img
+                      src={avatar.file_path}
+                      alt=""
+                      width={32}
+                      height={32}
+                      className="h-8 w-8 shrink-0 rounded-full"
+                    />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs text-zinc-400 dark:bg-zinc-800"
+                    >
+                      ?
+                    </span>
                   )}
-                  <span className="ml-2 text-xs text-zinc-400">
-                    [{TIER_LABELS[persona.tier] ?? persona.tier}]
+                  <span className="min-w-0">
+                    <span className="font-medium text-zinc-950 dark:text-zinc-50">{persona.name}</span>
+                    {persona.profile?.role && (
+                      <span className="ml-2 text-zinc-500">({persona.profile.role})</span>
+                    )}
+                    <span className="ml-2 text-xs text-zinc-400">
+                      [{TIER_LABELS[persona.tier] ?? persona.tier}]
+                    </span>
                   </span>
                 </Link>
 
@@ -252,6 +304,49 @@ export default async function PersonasPage({
                   )
                 )}
               </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-900">
+                <span className="text-xs text-zinc-400">
+                  アバター(F25): {AVATAR_STATUS_LABELS[persona.avatar_status]}
+                  {avatar && ` — ${avatar.label}`}
+                </span>
+                <form action={boundRecommendAvatarAction}>
+                  <button
+                    type="submit"
+                    className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    {persona.avatar_id ? "AIに再推薦させる" : "AIに推薦させる"}
+                  </button>
+                </form>
+                <form action={boundSetAvatarAction} className="flex items-center gap-1">
+                  <label className="sr-only" htmlFor={`avatar-select-${persona.id}`}>
+                    アバターを手動で選択
+                  </label>
+                  <select
+                    id={`avatar-select-${persona.id}`}
+                    name="avatarId"
+                    defaultValue={persona.avatar_id ?? ""}
+                    className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                  >
+                    <option value="" disabled>
+                      手動で選ぶ
+                    </option>
+                    {avatarOptionRows.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    変更する
+                  </button>
+                </form>
+              </div>
+              {persona.avatar_status === "failed" && persona.avatar_error && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{persona.avatar_error}</p>
+              )}
             </li>
           );
         })}

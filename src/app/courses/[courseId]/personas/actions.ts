@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { assertOwnsCourse } from "@/lib/courses/ownership";
 import { generateEvolvedRoles } from "@/lib/ai/evolved-persona";
+import { recommendPersonaAvatar, type AvatarOption } from "@/lib/ai/persona-avatar";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -221,6 +222,83 @@ export async function activatePersonaAction(courseId: string, personaId: string)
 
 export async function deactivatePersonaAction(courseId: string, personaId: string) {
   await setPersonaStatus(courseId, personaId, "active", "approved");
+}
+
+// F25: ペルソナのアバター推薦。プロフィール・立場の設定に応じて、あらかじめ用意した
+// 画像候補プール(avatar_options)からAIに1つ選ばせる(都度の画像生成はしない)。
+// 教師はこの推薦結果を、下の手動選択でいつでも変更できる(AIが一方的に見た目を固定しない)。
+export async function recommendPersonaAvatarAction(courseId: string, personaId: string) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+
+  const { data: persona } = await admin
+    .from("personas")
+    .select("id, course_id, name, profile, stance")
+    .eq("id", personaId)
+    .maybeSingle();
+  if (!persona || persona.course_id !== courseId) {
+    throw new Error("ペルソナが見つかりません。");
+  }
+
+  const { data: avatarOptionRows } = await admin.from("avatar_options").select("id, label, tags");
+  const options = (avatarOptionRows ?? []) as AvatarOption[];
+
+  try {
+    const profile = (persona.profile ?? {}) as Partial<PersonaProfileFields>;
+    const stance = (persona.stance ?? {}) as Partial<PersonaStanceFields>;
+    const { avatarId } = await recommendPersonaAvatar(
+      {
+        name: persona.name,
+        role: profile.role ?? "",
+        developmentalStage: profile.developmentalStage ?? "",
+        tone: profile.tone ?? "",
+        stancePosition: stance.position ?? "",
+        stanceGoal: stance.goal ?? "",
+      },
+      options,
+    );
+    const { error } = await admin
+      .from("personas")
+      .update({ avatar_id: avatarId, avatar_status: "done", avatar_error: null })
+      .eq("id", personaId);
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "不明なエラーが発生しました。";
+    await admin
+      .from("personas")
+      .update({ avatar_status: "failed", avatar_error: message })
+      .eq("id", personaId);
+  }
+
+  revalidatePath(`/courses/${courseId}/personas`);
+}
+
+// F25: 教師による手動でのアバター変更。AIの推薦を採用しない場合や、後から変更したい場合に使う。
+export async function setPersonaAvatarAction(
+  courseId: string,
+  personaId: string,
+  formData: FormData,
+) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+  await getOwnedPersona(admin, courseId, personaId);
+
+  const avatarId = String(formData.get("avatarId") ?? "").trim();
+  if (!avatarId) {
+    throw new Error("アバターを選択してください。");
+  }
+
+  const { error } = await admin
+    .from("personas")
+    .update({ avatar_id: avatarId, avatar_status: "done", avatar_error: null })
+    .eq("id", personaId);
+  if (error) {
+    throw new Error(`アバターの設定に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/courses/${courseId}/personas`);
 }
 
 // F10: 学習進化型擬似メンバー。

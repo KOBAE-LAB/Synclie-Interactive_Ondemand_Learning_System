@@ -1,0 +1,13 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ユーモラスな仕掛け人">
+  <circle cx="100" cy="100" r="100" fill="#fdba74"/>
+  <circle cx="52" cy="122" r="10" fill="#e8b48a"/>
+  <circle cx="148" cy="122" r="10" fill="#e8b48a"/>
+  <circle cx="100" cy="120" r="52" fill="#e8b48a"/>
+  <path d="M46,92 L58,52 L70,88 L84,44 L100,86 L116,44 L130,88 L142,52 L154,92 Z" fill="#4a2c1a"/>
+  <circle cx="82" cy="114" r="5" fill="#292524"/>
+  <circle cx="118" cy="114" r="5" fill="#292524"/>
+  <line x1="72" y1="100" x2="88" y2="94" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+      <line x1="112" y1="94" x2="128" y2="100" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+  <path d="M82,140 Q100,146 118,134" fill="none" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+  
+</svg>

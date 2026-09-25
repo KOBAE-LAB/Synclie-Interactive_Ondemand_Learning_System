@@ -20,11 +20,13 @@
 
 ## 2. ペルソナ設計(本研究の核)
 
-擬似メンバーは4要素で構成される:
+擬似メンバーは5要素で構成される:
 1. **プロフィール**(名前・役割・口調)
 2. **知識源**(RAGで取得した教材の範囲。資料にないことは断定せず問い返す)
 3. **立場と目標**(対立する立場を代表することもある。例: 「見取り」重視 vs エビデンス重視)
 4. **行動ルール**(共通ガードレール: AI明示・資料限定・同調禁止・問い返し・発言量の制約)
+5. **アバター(見た目)**(F25。プロフィール・立場の設定に応じてAIが画像候補プールから推薦する。
+   都度の画像生成はしない。詳細はF25の項目を参照)
 
 3つのペルソナ階層(tier):
 - `teacher_defined`(教師設定型): 教師がプロフィール・立場を直接設定
@@ -41,7 +43,7 @@
 - **C**: 初等中等教育の教科独習(「教わる側」「別の考えを持つ仲間」ペルソナ)
 - **D**: 大学・企業等での討論学習(対立するペルソナとの議論、AIジャッジ評価)
 
-## 4. 機能要件(F01–F24)の要点
+## 4. 機能要件(F01–F25)の要点
 
 詳細は要件定義書4章の表を参照。特に重要なもの:
 
@@ -76,6 +78,12 @@
   **非最終**の評価であり、学習者の自己評価・教師評価の材料にとどめる
   (「AIが学習者の考えを代替しない。評価の最終判断は教師と学習者に残す」)。
   実装済み。詳細は5章「論証評価」共有コンポーネントを参照
+- **F25 ペルソナのアバター推薦**(推奨/段階3): ペルソナに見た目(アバター)を持たせ、
+  学習者が「顔の見える」相手と対話している臨場感を持てるようにする。教師が固定の画像を選ぶのではなく、
+  プロフィール・立場と目標の設定内容に応じてAIが画像候補プール(あらかじめ用意した複数の画像)の中から
+  最も合う候補を推薦する方式(都度の画像生成はコストが重いため行わない)。推薦は手動選択でいつでも
+  上書きでき、教師が最終的に採用・変更できるようにしている(AIが一方的に見た目を固定しない)。
+  実装済み。詳細は8章の`src/lib/ai/persona-avatar.ts`の説明を参照
 
 ## 5. 「論証評価」共有コンポーネント
 
@@ -203,6 +211,9 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
     `dialogue_turns.image_path`という手書き専用の列名だったが、F13で音声にも同じ列を
     使うため`source_path`に改名した(`postStudentMessageAndRespond`の引数も
     `imagePath`→`sourcePath`)
+    ペルソナの発言(`speaker_type='persona'`)には、そのペルソナに`avatar_id`が設定されて
+    いればアバター画像(F25)を小さく添えて表示する(`personas`→`avatar_options`と
+    2段階で`file_path`を引く。未設定のペルソナは画像なしのまま、名前だけ表示する)
   - `src/app/courses/` — F01(授業・資料の登録)。教師が授業を作成する時、
     `mode`(`group`=グループワーク/`solo_study`=独習、F19)も選ぶ
     (`courses.mode`、既定は`group`)。`[courseId]/` で資料
@@ -246,7 +257,14 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
       「人数が少ない間は投射を控える」(要件定義書5章)ため、同意済み学習者が
       `MIN_STUDENTS_FOR_EVOLVED`(3人)未満だと生成を拒否する。生成後は既存のF04承認
       フローにそのまま乗る(教師がここで確認・編集してから承認・有効化する)。
-      `personas.origin_note`に生成理由を保存し、一覧に表示する
+      `personas.origin_note`に生成理由を保存し、一覧に表示する。
+      同じ画面に各ペルソナのアバター(F25)表示・「AIに推薦させる」ボタン
+      (`recommendPersonaAvatarAction`)・手動選択のプルダウン(`setPersonaAvatarAction`、
+      AIの推薦をいつでも上書きできる)がある。候補プールは全授業共通の`avatar_options`
+      テーブル(`0024_persona_avatars.sql`でシード済み、画像本体は`public/avatars/`の
+      SVG。`scripts/dev/generate-avatar-svgs.mjs`で生成した使い捨てコード)。
+      推薦・変更の結果は`personas.avatar_id`/`avatar_status`/`avatar_error`に保存する
+      (F02/F07などと同じ status/error 列のパターン)
     - `[courseId]/criteria/` — F07用。評価の観点(例: 根拠の明確さ)を教師が作成・編集・削除する。
       観点が1つも無いと学習者はAIフィードバックを受け取れない
     - `[courseId]/submissions/` — F07用。教師が全学習者の提出物(F06)とAIフィードバックを
@@ -316,6 +334,9 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
   手書き画像の認識(`handwriting.ts`、F12。マルチモーダル入力で文字を書き起こし、
   図・イラストは「[図: 説明]」の形で言葉に変換する)、
   音声の文字起こし(`audio.ts`、F13。OpenAIの音声文字起こしAPIを使う)、
+  ペルソナのアバター推薦(`persona-avatar.ts`、F25。候補の画像そのものではなく、各候補に
+  付けたラベル・タグ(テキスト)だけを`MODEL_JUDGE`に渡して選ばせる。画像を都度生成/都度
+  読ませるコストをどちらも避けるため)、
   OpenAIクライアント(`openai.ts`。`MODEL_TRANSCRIBE`もここで定義)
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
@@ -438,6 +459,10 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
     (組で一意)、LMS側のリソースリンク(課題)とSynclieの授業を対応付ける
     `lti_resource_links`(成績連携先の`lineitem_url`を持つ)、
     `learning_sessions.lti_resource_link_id`を追加
+  - `0024_persona_avatars.sql` — F25用。全授業共通のアバター候補プール`avatar_options`
+    (`file_path`/`label`/`tags`。画像本体は`public/avatars/`のSVG)を追加し、16件を
+    シードする。`personas`に`avatar_id`(参照。削除時は null に戻す)・`avatar_status`
+    (`pending`/`done`/`failed`)・`avatar_error`を追加(F02/F07などと同じ status/error 列)
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
@@ -447,6 +472,10 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
 - `scripts/dev/generate-lti-keys.mjs` — F17用: このツール自身のRSA署名鍵ペア(PKCS8 PEM)を
   生成し、`.env.local`に貼り付ける`LTI_TOOL_PRIVATE_KEY`/`LTI_TOOL_KEY_ID`を出力する
   (`node scripts/dev/generate-lti-keys.mjs`)。
+- `scripts/dev/generate-avatar-svgs.mjs` — F25用: アバター候補プールの実体
+  (フラットイラスト風の顔アイコンSVG、画像生成APIは使わずコード内で図形として組み立てる)を
+  `public/avatars/`に書き出し、`0024_persona_avatars.sql`に貼り付ける insert 文を標準出力する
+  使い捨てスクリプト(候補を増やしたい時の参考用に残してある)。
 
 ### 認証まわりの注意(重要・要フォローアップ)
 
@@ -469,7 +498,7 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
 ## 9. 開発の進め方
 
 - ブランチは機能ID(F01, F02, …)ベースで作成する。
-- ロードマップ(要件定義書11章): 段階1 = F01–F09, F16, F20 / 段階2 = F10–F15, F19, F21–F24 / 段階3 = F17, F18
+- ロードマップ(要件定義書11章): 段階1 = F01–F09, F16, F20 / 段階2 = F10–F15, F19, F21–F24 / 段階3 = F17, F18, F25
 - 段階0〜1はコストを最小化する(安価モデル優先、論証評価の呼び出し回数を絞る、支出上限を設定・監視する)。
 - 実装前に要件定義書の該当章を確認し、齟齬があれば要件定義書を更新してから実装する
   (要件定義書が「正」。このCLAUDE.mdは早見表であり、詳細判断の根拠にはしない)。

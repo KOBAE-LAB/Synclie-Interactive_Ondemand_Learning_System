@@ -1,0 +1,13 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="慎重な中学生">
+  <circle cx="100" cy="100" r="100" fill="#93c5fd"/>
+  <circle cx="52" cy="122" r="10" fill="#c68642"/>
+  <circle cx="148" cy="122" r="10" fill="#c68642"/>
+  <circle cx="100" cy="120" r="52" fill="#c68642"/>
+  <ellipse cx="100" cy="82" rx="56" ry="34" fill="#1c1c1c"/>
+  <circle cx="82" cy="114" r="5" fill="#292524"/>
+  <circle cx="118" cy="114" r="5" fill="#292524"/>
+  <line x1="72" y1="98" x2="88" y2="98" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+    <line x1="112" y1="98" x2="128" y2="98" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+  <line x1="85" y1="140" x2="115" y2="140" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+  
+</svg>
