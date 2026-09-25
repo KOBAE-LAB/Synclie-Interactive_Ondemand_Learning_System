@@ -295,6 +295,8 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
   - `0017_solo_study_mode.sql` — F19用。`courses.mode`(`group`/`solo_study`、既定は
     `group`)を追加。`learning_sessions.mode`は0001_init.sqlの時点で既に
     `solo_study`を許容していたため、新しい対話機構は不要だった
+  - `0018_enable_rls.sql` — セキュリティ修正。publicスキーマの全テーブルでRLSを有効化
+    (ポリシーは無し。service roleキーは常にRLSをバイパスするため、アプリの動作は変わらない)
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
@@ -304,11 +306,15 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
 
 ### 認証まわりの注意(重要・要フォローアップ)
 
-- RLS(Row Level Security)は**まだ有効化していない**。教師専用ページは
-  `src/lib/auth/session.ts` の `requireRole()` によるアプリ側のロールチェック +
-  管理者クライアント(サービスロールキー、RLSをバイパス)で保護している。
-  本番投入前に、必ずSupabase側でRLSを有効化し、`courses.owner_teacher_id` /
-  `course_materials.uploaded_by` ベースのポリシーを追加すること。
+- RLS(Row Level Security)は`0018_enable_rls.sql`で全テーブル有効化済み。ただし**ポリシーは
+  まだ無い**。アプリはservice roleキー(`createAdminClient()`、RLSを常にバイパスする)だけで
+  DBにアクセスしており、教師専用ページは`src/lib/auth/session.ts`の`requireRole()`による
+  アプリ側のロールチェックで保護している。ポリシーが無い状態でRLSを有効にしているのは、
+  「anon/authenticatedキーが漏れても何も読み書きできない」ようにする最低限の保険であり、
+  本番投入前には別途、`courses.owner_teacher_id` / `course_materials.uploaded_by` /
+  `student_id`ベースのポリシーを追加すること。
+  **新しいテーブルを追加するたびに、そのマイグレーションで`alter table ... enable row
+  level security;`も必ず一緒に実行すること**(ポリシーは無くてよいが、RLS自体は毎回有効化する)。
 - 段階1のCredentials認証は自前のパスワードハッシュ(bcrypt)を`profiles`に保存する方式。
   段階2でSSO(F22)に移行する際、`password_hash`列はそのまま残しつつ、
   SSOプロバイダーのsubject idを別途キーとして使う設計にする(要件定義書6章・12章参照)。

@@ -1,40 +1,9 @@
 /**
- * サーバー側(Server Components / Route Handlers / Server Actions)から使う Supabase クライアント。
- * Next.js の `cookies()` は非同期のため、生成関数も非同期にしている。
- */
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-
-export async function createClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
-            }
-          } catch {
-            // Server Component から呼ばれた場合、set は無視してよい
-            // (ミドルウェアがセッションのリフレッシュを担当する)
-          }
-        },
-      },
-    },
-  );
-}
-
-/**
- * サーバー専用の管理者クライアント(RLS を バイパスする)。
+ * サーバー専用の管理者クライアント(RLS をバイパスする)。
  * service role key を使うため、絶対にクライアントバンドルに含めないこと。
- * 教材投入・採点・ポートフォリオ集計などのバックエンド処理専用。
+ * このアプリはSupabase Authを使わず(認証はAuth.jsのCredentialsプロバイダー)、
+ * DBアクセスは常にこの管理者クライアント経由で行い、認可はアプリ側のロールチェック
+ * (src/lib/auth/session.tsのrequireRole)で行う。
  */
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 

@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Supabase移行作業用のローカルバックアップ(DBダンプ・Storageファイル)。絶対にコミットしない。
+/migration-backup/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
