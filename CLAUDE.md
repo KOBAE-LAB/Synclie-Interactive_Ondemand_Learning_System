@@ -46,6 +46,9 @@
 詳細は要件定義書4章の表を参照。特に重要なもの:
 
 - **F14 教師ダッシュボード**(必須): 学習状況の確認 + 指導計画に紐づく
+- **F17 LMS連携**(将来/段階3): 既存のLMSと認証・成績・教材を連携する(LTI 1.3)。
+  コード側は実装済みだが、実際のLMSへのツール登録(Canvas等の管理画面、人手が必要)は
+  まだ行っていないため、実際のLMSとの連携は未検証。詳細は8章の`src/lib/lti/`の説明を参照
 - **F19 独習モード**(段階2, GWが最優先でMVP、独習は2番目)。実装済み: `courses.mode`
   (`group`/`solo_study`)を教師が授業作成時に選ぶだけで、対話機構自体(F02〜F05)は
   そのまま使い回す。詳細は8章の`src/app/courses/`の説明を参照
@@ -327,6 +330,49 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
   自動的に判定・作成し、`profiles.organization_id`に割り当てる。
   **実際のOAuthアプリ登録はまだ行っておらず、ブラウザでの実ログインは未検証**
   (Credentialsログインへの影響が無いことと、`next build`が通ることは確認済み)
+- `src/lib/lti/` — F17(LMS連携、LTI 1.3)。単一のLMSプラットフォームを前提にした
+  最小構成(複数LMSに対応する場合は`config.ts`をDBテーブルに置き換えること)。
+  対応する環境変数(`LTI_PLATFORM_*` / `LTI_TOOL_*`)が揃っていない限り、
+  `config.ts`の`getLtiConfig()`が`null`を返して機能全体を無効化する(F22と同じ方針)。
+  - `config.ts` — 環境変数の読み込み
+  - `keys.ts` — このツール自身のRSA鍵(`LTI_TOOL_PRIVATE_KEY`、
+    `scripts/dev/generate-lti-keys.mjs`で生成)。`getToolJwks()`が`/api/lti/jwks`で
+    配信する公開鍵セットを作る(秘密鍵の情報は含めない)。`signWithToolKey()`・
+    `signDeepLinkingResponse()`はDeep Linking応答や成績連携(AGS)の署名に使う
+  - `claims.ts` — id_tokenのクレーム型と、`mapLtiRolesToAppRole()`(LTIのroles claimを
+    teacher/studentに対応付ける。SSO(F22)と違いLTIは役割情報をくれるため、新規作成時に
+    活用できる。判定できなければ安全側のstudentにする)
+  - `verify.ts` — プラットフォームのid_tokenを、プラットフォームのJWKS(リモート)で検証する
+    (`iss`/`aud`/`nonce`/`deployment_id`の一致を確認)
+  - `session.ts` — `linkOrCreateLtiProfile()`。F22の`sso.ts`と同じ考え方
+    (`lti_issuer`+`lti_subject`の組で永続的に同じ人物を指す。既存のCredentials/SSO
+    アカウントがあればメールで一度だけ統合)
+  - `handoff.ts` — `/api/lti/launch`でのid_token検証と、NextAuthのセッション確立を
+    つなぐ短命な受け渡しトークン(`AUTH_SECRET`で署名、60秒で失効)。詳細は`src/auth.ts`の
+    コメント参照(プラットフォームのid_tokenをCredentialsプロバイダーへ直接渡さない設計)
+  - `ags.ts` — 成績連携(Assignment and Grade Services)。OAuth2 client_credentialsで
+    アクセストークンを取り(認可はこのツールの秘密鍵で署名したJWTクライアント資格情報
+    アサーション)、`lti_resource_links.lineitem_url`の`/scores`エンドポイントへ
+    スコアをPOSTする(`sendScoreToLms()`)
+  - ローンチのURL構成: `/api/lti/login`(サードパーティ開始ログイン、state/nonceを
+    Cookieに保存してプラットフォームへリダイレクト)→ プラットフォームでの認証 →
+    `/api/lti/launch`(id_token検証→profile紐づけ→受け渡しトークン発行→
+    `signIn("lti", ...)`)→ `/lti/continue`(ローンチ文脈のCookieを見て、Deep Linking
+    なら`/courses/lti-deep-link`、通常のリソースリンク起動ならDBで紐づく授業を見つけて
+    リダイレクト)。Deep Linking(教師がLMSの課題作成画面でSynclieの授業を選ぶ場面)は
+    `/courses/lti-deep-link`で授業を選び、`/courses/lti-deep-link/submit`が署名済み
+    JWTを含むフォームをLMSへ自動送信する。教材(単元)の対応先はresource_link_idだけでは
+    最初の起動時にまだ分からないため、Deep Linkingで返すcontent itemの`url`に
+    `course_id`を埋め込み、`/api/lti/login`がそれを拾って`lti_resource_links`
+    (`issuer`+`deployment_id`+`resource_link_id`で一意)に初回登録する設計にしている
+  - `learning_sessions.lti_resource_link_id`(`learn/[courseId]/actions.ts`の
+    `getOrCreateSession`が、`/lti/continue`が設定したCookieから読んで記録)で、
+    「この学習セッションはどの課題(リソースリンク)経由か」を追跡し、F24の議論ジャッジを
+    成績としてLMSへ送信できるようにする(`courses/[courseId]/submissions/`の
+    「LMSに成績を送信する」ボタン、`sendGradeToLmsAction`)
+  - **実際のLMSへのツール登録(Canvas等の管理画面、人手が必要)はまだ行っておらず、
+    実際のLMSとの連携は未検証。** 鍵生成・JWKS配信・JWT署名/検証・受け渡しトークンの
+    往復・役割マッピングはローカルのスクリプトで単体検証済み(モックのプラットフォーム値を使用)
 - `supabase/migrations/` — DBスキーマ
   - `0001_init.sql` — 初期骨組み(要件定義書6章参照)
   - `0002_auth_and_materials.sql` — ログイン用カラム(profiles.email/password_hash)、
@@ -380,12 +426,19 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
   - `0022_discussion_judgment.sql` — F24用。`submissions.judgment_status`/
     `judgment_error`(F07のfeedback_status/feedback_errorと同じパターン)と、
     議論全体を通してのAIジャッジ結果を1提出物1件で保存する`discussion_judgments`を追加
+  - `0023_lti_integration.sql` — F17用。`profiles.lti_issuer`/`lti_subject`
+    (組で一意)、LMS側のリソースリンク(課題)とSynclieの授業を対応付ける
+    `lti_resource_links`(成績連携先の`lineitem_url`を持つ)、
+    `learning_sessions.lti_resource_link_id`を追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
 - `scripts/dev/create-user.mjs` — 開発用: テストアカウント(教師/生徒)を作成するスクリプト。
   サインアップ画面はまだないため、当面はこれでアカウントを作る
   (`node --env-file=.env.local scripts/dev/create-user.mjs --email ... --password ... --role teacher`)。
+- `scripts/dev/generate-lti-keys.mjs` — F17用: このツール自身のRSA署名鍵ペア(PKCS8 PEM)を
+  生成し、`.env.local`に貼り付ける`LTI_TOOL_PRIVATE_KEY`/`LTI_TOOL_KEY_ID`を出力する
+  (`node scripts/dev/generate-lti-keys.mjs`)。
 
 ### 認証まわりの注意(重要・要フォローアップ)
 

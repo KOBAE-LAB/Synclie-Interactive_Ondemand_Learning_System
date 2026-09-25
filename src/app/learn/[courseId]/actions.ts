@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { searchMaterialChunks } from "@/lib/rag/search";
@@ -44,9 +45,20 @@ async function getOrCreateSession(admin: AdminClient, courseId: string, studentI
   const { data: course } = await admin.from("courses").select("mode").eq("id", courseId).maybeSingle();
   const mode = course?.mode === "solo_study" ? "solo_study" : "group";
 
+  // F17: 直前のLTIローンチ(/lti/continue)がこの授業向けのリソースリンクを
+  // Cookieに残していれば、このセッションをそのリソースリンク経由として記録する
+  // (成績連携(AGS)で「この活動をどの課題の成績として送り返すか」を判定するため)。
+  const cookieStore = await cookies();
+  const activeLink = cookieStore.get("lti_active_resource_link")?.value;
+  let ltiResourceLinkId: string | null = null;
+  if (activeLink) {
+    const [linkedCourseId, resourceLinkId] = activeLink.split(":");
+    if (linkedCourseId === courseId) ltiResourceLinkId = resourceLinkId;
+  }
+
   const { data: created, error } = await admin
     .from("learning_sessions")
-    .insert({ course_id: courseId, student_id: studentId, mode })
+    .insert({ course_id: courseId, student_id: studentId, mode, lti_resource_link_id: ltiResourceLinkId })
     .select("id")
     .single();
   if (error || !created) {

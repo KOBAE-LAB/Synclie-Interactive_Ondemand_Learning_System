@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
-import { updateFeedbackAction } from "./actions";
+import { updateFeedbackAction, sendGradeToLmsAction } from "./actions";
 
 interface SubmissionRow {
   id: string;
@@ -207,9 +207,19 @@ export default async function SubmissionsReviewPage({
 
               {judgment && (
                 <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 text-xs dark:border-zinc-800">
-                  <p className="font-medium text-zinc-700 dark:text-zinc-300">
-                    AIジャッジ(F24): 議論全体を通しての評価
-                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium text-zinc-700 dark:text-zinc-300">
+                      AIジャッジ(F24): 議論全体を通しての評価
+                    </p>
+                    <form action={sendGradeToLmsAction.bind(null, courseId, submission.id)}>
+                      <button
+                        type="submit"
+                        className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        LMSに成績を送信する(F17)
+                      </button>
+                    </form>
+                  </div>
                   <p className="text-zinc-500">
                     論理構成 {judgment.logic_structure}/5 ・ 根拠の質 {judgment.evidence_quality}/5 ・
                     反論への応答 {judgment.rebuttal_response}/5
@@ -217,6 +227,7 @@ export default async function SubmissionsReviewPage({
                   <p>{judgment.summary_comment}</p>
                   <p className="text-zinc-400">
                     この評価は最終ではありません。学習評価の参考にしてください。
+                    「LMSに成績を送信する」は、この成果がLTI経由の活動に紐づく場合のみ機能します。
                   </p>
                 </div>
               )}

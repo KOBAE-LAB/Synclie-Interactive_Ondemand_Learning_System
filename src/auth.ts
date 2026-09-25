@@ -11,6 +11,11 @@
  * サインインしたユーザーをprofilesに紐づける処理は src/lib/auth/sso.ts に分離している
  * (生徒のSSO subject idを、学年が上がってもポートフォリオを引き継ぐための永続キーとして
  * 使う想定。要件定義書6章・12章を参照)。
+ *
+ * 段階3: F17(LMS連携、LTI 1.3)。/api/lti/launch がプラットフォームのid_tokenを検証した
+ * 「あと」に、その結果(どのprofileか)だけを積んだ短命な受け渡しトークンを
+ * "lti" Credentialsプロバイダーへ渡してセッションを確立する
+ * (src/lib/lti/handoff.ts参照。プラットフォームのid_tokenを直接ここへは渡さない)。
  */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
@@ -20,6 +25,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
 import { verifyPassword } from "@/lib/auth/password";
 import { linkOrCreateSsoProfile } from "@/lib/auth/sso";
+import { verifyLtiHandoffToken } from "@/lib/lti/handoff";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -81,6 +87,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }),
         ]
       : []),
+    // F17: LTI 1.3。/api/lti/launch がプラットフォームのid_tokenを検証・profileへの
+    // 紐づけまで済ませた後にだけ呼ばれる(このauthorize()自体はLTIを検証しない)。
+    Credentials({
+      id: "lti",
+      name: "LTI",
+      credentials: { token: { label: "LTI handoff token", type: "text" } },
+      async authorize(rawCredentials) {
+        const token = rawCredentials?.token;
+        if (typeof token !== "string") return null;
+        const payload = await verifyLtiHandoffToken(token);
+        if (!payload) return null;
+        return {
+          id: payload.profileId,
+          email: payload.email,
+          name: payload.name,
+          role: payload.role,
+        };
+      },
+    }),
   ],
   session: { strategy: "jwt" },
   pages: {
@@ -88,9 +113,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     // F22: SSOでのサインイン時、profilesへの紐づけ・役割の決定をここで行い、
-    // 結果(id/role)をuserに詰め直す。Credentialsは既にauthorize()で決定済みなのでスキップする。
+    // 結果(id/role)をuserに詰め直す。Credentials("credentials"/"lti")は
+    // それぞれのauthorize()で既に決定済みなのでスキップする。
     async signIn({ user, account, profile }) {
-      if (!account || account.provider === "credentials") return true;
+      if (!account || account.provider === "credentials" || account.provider === "lti") return true;
 
       const subject = account.providerAccountId;
       if (!subject) return false;
