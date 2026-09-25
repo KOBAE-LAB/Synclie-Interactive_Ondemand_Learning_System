@@ -56,6 +56,9 @@
 - **F22 SSO対応**(必須/段階2): Microsoft Entra ID / Google Workspace for Education。
   生徒のSSO subject idは、進級後もポートフォリオを引き継ぐための永続キーとして使う。
   低学年向けにはQRコード・絵柄パスワード等の代替ログイン手段が必要(要件定義書12章の未解決課題)。
+  コード側は実装済みだが、実際のOAuthアプリ登録(Azure Portal / Google Cloud Console、
+  人手が必要)はまだ行っていないため、ブラウザでの実ログインは未検証。詳細は
+  `src/auth.ts`・`src/lib/auth/sso.ts`の説明を参照
 - **F23 生徒ダッシュボード**(必須/段階2): 学習状況確認 + 学習計画
 - **F24 討論のAIジャッジ・評価**(必須/段階2): 論理構成/根拠の質/反論への応答で評価。
   **非最終**の評価であり、学習者の自己評価・教師評価の材料にとどめる
@@ -110,7 +113,10 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
   - `src/app/page.tsx` — ログイン後の行き先をロールで振り分ける(教師→`/courses`、
     学習者→`/learn`)。`login/actions.ts`の`loginAction`は`redirectTo: "/"`固定にしてあり、
     ロールごとの分岐はここに集約している
-  - `src/app/login/` — 段階1の簡易ログイン画面(メール+パスワード)
+  - `src/app/login/` — 段階1の簡易ログイン画面(メール+パスワード、`login-form.tsx`)。
+    F22用に、対応する環境変数(`AUTH_MICROSOFT_ENTRA_ID_ID` / `AUTH_GOOGLE_ID`)が
+    設定されている時だけ「Microsoftでログイン」「Googleでログイン」ボタンを
+    `page.tsx`(サーバーコンポーネント)が条件付きで表示する
   - `src/app/consent/` — F16(同意・データ管理)。学習者が同意していない/撤回済みの場合、
     `src/lib/consent.ts`の`requireConsent()`がここへリダイレクトする
     (`/learn`, `/learn/[courseId]`, `/learn/[courseId]/portfolio`から呼んでいる)。
@@ -286,8 +292,20 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
   `search.ts`はF05用: 学習者の発言を埋め込み、`match_material_chunks`(Postgres RPC、
   `0005_persona_dialogue.sql`)でコサイン類似度検索する
   (supabase-jsだけではベクトル距離の並び替えを書けないためDB関数にした)
-- `src/lib/auth/` — パスワードハッシュ(`password.ts`)、ロール確認ヘルパー(`session.ts`)
-- `src/auth.ts` — Auth.js設定(段階1: Credentialsプロバイダー。profiles.email / password_hash を照合)
+- `src/lib/auth/` — パスワードハッシュ(`password.ts`)、ロール確認ヘルパー(`session.ts`)、
+  F22用のSSOアカウント紐づけ(`sso.ts`の`linkOrCreateSsoProfile`)
+- `src/auth.ts` — Auth.js設定。Credentialsプロバイダー(段階1、profiles.email /
+  password_hash を照合)に加えて、F22用にMicrosoft EntraID / Googleプロバイダーを、
+  対応する環境変数が設定されている時だけ`providers`配列に加える(未設定でもbuildは通る)。
+  SSOでのサインインは`signIn`コールバックで`linkOrCreateSsoProfile()`を呼び、
+  (1)同じprovider+subjectの既存行があればそれを使う(生徒の進級後もポートフォリオが
+  引き継がれる、要件定義書6章・12章)、(2)無ければメールアドレスで段階1のCredentials
+  アカウントに一度だけ統合する、(3)どちらも無ければ新規作成する(役割は自動判定できない
+  ため既定で`student`。教師アカウントへの昇格は今のところ手動)。IdPのテナントID
+  (EntraIDの`tid`、Googleの`hd`)から`organizations`(F21で使っているテーブル)を
+  自動的に判定・作成し、`profiles.organization_id`に割り当てる。
+  **実際のOAuthアプリ登録はまだ行っておらず、ブラウザでの実ログインは未検証**
+  (Credentialsログインへの影響が無いことと、`next build`が通ることは確認済み)
 - `supabase/migrations/` — DBスキーマ
   - `0001_init.sql` — 初期骨組み(要件定義書6章参照)
   - `0002_auth_and_materials.sql` — ログイン用カラム(profiles.email/password_hash)、
@@ -333,6 +351,9 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     (組織をまたぐ共有の承認者)、`personas.shared_at` / `course_materials.shared_at`
     (共有ライブラリへの公開)、`share_requests`テーブル(組織をまたぐ共有リクエストの
     pending/approved/declined管理)を追加
+  - `0020_sso.sql` — F22用。`profiles.sso_provider`/`sso_subject`(provider+subjectで
+    一意)と`organizations.sso_tenant_id`(一意)を追加。password_hashは残したまま、
+    SSOのsubject idを別キーとして持たせる
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

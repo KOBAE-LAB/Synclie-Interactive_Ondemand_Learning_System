@@ -1,21 +1,25 @@
 /**
  * Auth.js (NextAuth v5) 設定。
  *
- * 段階1: Credentials(メール+パスワード等の簡易ログイン)のみ。
- * 段階2: F22(SSO対応)で Microsoft Entra ID / Google Workspace for Education の
- *        プロバイダーを追加し、教員・生徒ロールをテナント(組織)単位で識別する。
- *        生徒の SSO subject id は、学年が上がってもポートフォリオを引き継ぐための
- *        永続キーとして使う想定(要件定義書 6章・12章を参照)。
+ * 段階1: Credentials(メール+パスワード等の簡易ログイン)。
+ * 段階2: F22(SSO対応)。Microsoft Entra ID / Google Workspace for Education の
+ *        プロバイダーは、対応する環境変数(AUTH_MICROSOFT_ENTRA_ID_ID など)が
+ *        設定されている時だけ有効になる(未設定でもbuild・Credentialsログインは動く)。
+ *        実際のOAuthアプリ登録(Azure Portal / Google Cloud Console)は開発者が
+ *        別途行う必要があり、このコードだけでは完結しない。
  *
- * この時点ではプロバイダー未設定でもビルドが通るよう、配列は空でも動く構成にしてある。
+ * サインインしたユーザーをprofilesに紐づける処理は src/lib/auth/sso.ts に分離している
+ * (生徒のSSO subject idを、学年が上がってもポートフォリオを引き継ぐための永続キーとして
+ * 使う想定。要件定義書6章・12章を参照)。
  */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import Google from "next-auth/providers/google";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
 import { verifyPassword } from "@/lib/auth/password";
-// import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
-// import Google from "next-auth/providers/google";
+import { linkOrCreateSsoProfile } from "@/lib/auth/sso";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -26,7 +30,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     // 段階1: メール+パスワードの簡易ログイン。
     // profiles.email / profiles.password_hash を照合する(0002マイグレーション参照)。
-    // 段階2: SSO 移行時に MicrosoftEntraID / Google を追加する(このプロバイダーは残してもよい)。
     Credentials({
       credentials: {
         email: { label: "メールアドレス", type: "email" },
@@ -58,12 +61,60 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
+    // F22: Microsoft Entra ID。AUTH_MICROSOFT_ENTRA_ID_ISSUERで特定のテナントに限定できる
+    // (未指定なら個人アカウントも含む共通(common)テナントで動く)。
+    ...(process.env.AUTH_MICROSOFT_ENTRA_ID_ID
+      ? [
+          MicrosoftEntraID({
+            clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
+            clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
+            issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER,
+          }),
+        ]
+      : []),
+    // F22: Google Workspace for Education。
+    ...(process.env.AUTH_GOOGLE_ID
+      ? [
+          Google({
+            clientId: process.env.AUTH_GOOGLE_ID,
+            clientSecret: process.env.AUTH_GOOGLE_SECRET,
+          }),
+        ]
+      : []),
   ],
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
   },
   callbacks: {
+    // F22: SSOでのサインイン時、profilesへの紐づけ・役割の決定をここで行い、
+    // 結果(id/role)をuserに詰め直す。Credentialsは既にauthorize()で決定済みなのでスキップする。
+    async signIn({ user, account, profile }) {
+      if (!account || account.provider === "credentials") return true;
+
+      const subject = account.providerAccountId;
+      if (!subject) return false;
+
+      const tenantId =
+        account.provider === "microsoft-entra-id"
+          ? ((profile as { tid?: string } | undefined)?.tid ?? null)
+          : account.provider === "google"
+            ? ((profile as { hd?: string } | undefined)?.hd ?? null)
+            : null;
+
+      const linked = await linkOrCreateSsoProfile({
+        provider: account.provider,
+        subject,
+        email: user.email ?? null,
+        displayName: user.name ?? null,
+        tenantId,
+      });
+      if (!linked) return false;
+
+      user.id = linked.id;
+      (user as typeof user & { role?: string }).role = linked.role as "teacher" | "student" | "guardian";
+      return true;
+    },
     async jwt({ token, user }) {
       // サインイン直後(user が渡されるタイミング)にロールをJWTへ焼き込む。
       if (user) {

@@ -27,3 +27,13 @@ export async function loginAction(
     throw error;
   }
 }
+
+// F22: SSO。プロバイダーは環境変数が設定されている時だけログイン画面に表示される
+// (src/app/login/page.tsx参照)。
+export async function signInWithMicrosoftAction() {
+  await signIn("microsoft-entra-id", { redirectTo: "/" });
+}
+
+export async function signInWithGoogleAction() {
+  await signIn("google", { redirectTo: "/" });
+}
