@@ -51,7 +51,8 @@
   そのまま使い回す。詳細は8章の`src/app/courses/`の説明を参照
 - **F20 ペルソナ設計と同調の計測**: 「論証評価」ロジックでペルソナの意見変更を判定
 - **F21 教員協働のペルソナ・教材ライブラリ共有**(必須/段階2): 同一組織はSSOで自動承認、
-  組織を跨ぐ共有はアプリ側の承認者フローが別途必要(SSOだけでは判定できない)
+  組織を跨ぐ共有はアプリ側の承認者フローが別途必要(SSOだけでは判定できない)。
+  実装済み。詳細は8章の`src/app/organization/`・`src/app/library/`の説明を参照
 - **F22 SSO対応**(必須/段階2): Microsoft Entra ID / Google Workspace for Education。
   生徒のSSO subject idは、進級後もポートフォリオを引き継ぐための永続キーとして使う。
   低学年向けにはQRコード・絵柄パスワード等の代替ログイン手段が必要(要件定義書12章の未解決課題)。
@@ -238,7 +239,32 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
       同じ「新しい監査テーブルは作らず、対象の行に直接書き込む」方針。`dialogue_turns`に
       `flagged_by_teacher`・`teacher_note`を追加)。修正後の内容は以後の対話でLLMに渡す
       直近履歴としてもそのまま使われるため、訂正すれば同じ誤りの再発も防げる
-- `src/lib/supabase/` — Supabaseクライアント(`client.ts`=ブラウザ用, `server.ts`=サーバー用+管理者用)
+  - `src/app/organization/` — F21用。組織(学校・地域単位)への参加・作成と、組織をまたぐ
+    共有リクエストの承認者設定。SSO(F22)がまだ無いため、`profiles.organization_id`への
+    所属は教師が組織名を入力して自己申告で参加・作成する方式にしている
+    (`joinOrCreateOrganizationAction`: 同名の組織があれば参加、無ければ新規作成して
+    自分がその組織の承認者になる)。「承認者の指定方法」は要件定義書12章で「未解決」と
+    明記されている論点。単一の管理者ロールがまだ無いため、「組織に所属する教師なら誰でも、
+    その組織の承認者を指定・変更できる」という最小限の自己統治ルールを暫定採用した
+    (`setApproverAction`)。組織の承認者は、この画面で組織をまたぐ共有リクエスト
+    (`share_requests`)を承認/見送りできる(`decideShareRequestAction`)
+  - `src/app/library/` — F21用。共有ライブラリ。「教員(授業者)が、単元の対応表や
+    擬似メンバー設定を学校・地域をまたいで複製・共有し、互いの実践を参照しながら教材と
+    ペルソナを育てられるようにする」(要件定義書4章)。`personas.shared_at` /
+    `course_materials.shared_at`(kind='syllabus'のみ共有可)が立っているアイテムを一覧表示し、
+    公開元の教師の組織が自分と同じなら即時複製(`duplicatePersonaAction` /
+    `duplicateMaterialAction`)、違えば`requestCrossOrgAccessAction`でリクエストを送り、
+    相手組織の承認者が`/organization`で承認してから複製できるようになる
+    (`share_requests.status`: pending→approved/declined)。ペルソナの共有は
+    `courses/[courseId]/personas/`(承認済み以上のみ共有可、下書きは不可)、教材の共有は
+    `courses/[courseId]/`にそれぞれトグルボタンがある。複製したペルソナは既存のF04承認
+    ワークフロー(`status='draft'`から)にそのまま乗り、複製した教材はStorageファイルも
+    コピーしたうえでRAGは複製先の授業で改めて生成する(F02の仕組みをそのまま使う)。
+    `origin_note`/タイトルに複製元の教師名を残す(帰属を追える形にする)
+- `src/lib/supabase/server.ts` — Supabase管理者クライアント(`createAdminClient()`、
+  service roleキー、RLSを常にバイパスする)。このアプリはSupabase Authを使わず
+  (認証はAuth.jsのCredentialsプロバイダー)、DBアクセスは常にこのクライアント経由で行う
+  (以前あった未使用のブラウザ用クライアント`client.ts`は削除済み)
 - `src/lib/courses/ownership.ts` — `assertOwnsCourse()`: 教師が自分の授業を操作しているかの
   確認(RLS未整備な段階1のアプリ側ガード)。`courses/[courseId]/`配下の複数のactions.tsから共用
 - `src/lib/consent.ts` — F16。`requireConsent()`: 同意していない/撤回済みの学習者を
@@ -303,6 +329,10 @@ F20はF05(擬似メンバー対話)の`sendMessageAction`に組み込み済み�
     `solo_study`を許容していたため、新しい対話機構は不要だった
   - `0018_enable_rls.sql` — セキュリティ修正。publicスキーマの全テーブルでRLSを有効化
     (ポリシーは無し。service roleキーは常にRLSをバイパスするため、アプリの動作は変わらない)
+  - `0019_teacher_collaboration.sql` — F21用。`organizations.approver_teacher_id`
+    (組織をまたぐ共有の承認者)、`personas.shared_at` / `course_materials.shared_at`
+    (共有ライブラリへの公開)、`share_requests`テーブル(組織をまたぐ共有リクエストの
+    pending/approved/declined管理)を追加
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

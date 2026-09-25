@@ -99,6 +99,60 @@ export async function generateMaterialRagAction(courseId: string, materialId: st
   revalidatePath(`/courses/${courseId}`);
 }
 
+// F21: 教材(単元の対応表=kind='syllabus')を組織の共有ライブラリに公開する。
+// 「単元の対応表や擬似メンバー設定を…複製・共有」(要件定義書4章)のうち、教材側の対応。
+// 教科書本文などの著作物を保存しない方針(6章)のため、共有できるのは教師が自分で作った
+// syllabus種別の資料に限る(PDF等の複製配布は行わない)。
+export async function shareMaterialAction(courseId: string, materialId: string) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+
+  const { data: material } = await admin
+    .from("course_materials")
+    .select("id, course_id, kind")
+    .eq("id", materialId)
+    .maybeSingle();
+  if (!material || material.course_id !== courseId) {
+    throw new Error("資料が見つかりません。");
+  }
+  if (material.kind !== "syllabus") {
+    throw new Error("単元の対応表(シラバス)以外は共有できません。");
+  }
+
+  const { error } = await admin
+    .from("course_materials")
+    .update({ shared_at: new Date().toISOString() })
+    .eq("id", materialId);
+  if (error) {
+    throw new Error(`共有に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/courses/${courseId}`);
+}
+
+export async function unshareMaterialAction(courseId: string, materialId: string) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+
+  const { data: material } = await admin
+    .from("course_materials")
+    .select("id, course_id")
+    .eq("id", materialId)
+    .maybeSingle();
+  if (!material || material.course_id !== courseId) {
+    throw new Error("資料が見つかりません。");
+  }
+
+  const { error } = await admin.from("course_materials").update({ shared_at: null }).eq("id", materialId);
+  if (error) {
+    throw new Error(`共有の取り消しに失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/courses/${courseId}`);
+}
+
 // F02: この授業でまだ知識ベース化されていない資料(pending/failed)をまとめて生成する。
 export async function generateAllPendingRagAction(courseId: string) {
   const { user } = await requireRole("teacher");

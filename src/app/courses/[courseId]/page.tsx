@@ -2,7 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
-import { uploadMaterialAction, generateMaterialRagAction, generateAllPendingRagAction } from "./actions";
+import {
+  uploadMaterialAction,
+  generateMaterialRagAction,
+  generateAllPendingRagAction,
+  shareMaterialAction,
+  unshareMaterialAction,
+} from "./actions";
 
 const KIND_LABELS: Record<string, string> = {
   syllabus: "シラバス",
@@ -49,7 +55,7 @@ export default async function CourseDetailPage({
 
   const { data: materials } = await admin
     .from("course_materials")
-    .select("id, kind, title, source_url, rag_status, rag_error, created_at")
+    .select("id, kind, title, source_url, rag_status, rag_error, shared_at, created_at")
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
 
@@ -204,6 +210,8 @@ export default async function CourseDetailPage({
       <ul className="mt-3 space-y-2">
         {(materials ?? []).map((material) => {
           const boundGenerateOneAction = generateMaterialRagAction.bind(null, courseId, material.id);
+          const boundShareAction = shareMaterialAction.bind(null, courseId, material.id);
+          const boundUnshareAction = unshareMaterialAction.bind(null, courseId, material.id);
           const chunkCount = chunkCountByMaterial.get(material.id) ?? 0;
           const statusLabel = RAG_STATUS_LABELS[material.rag_status] ?? material.rag_status;
           const statusStyle =
@@ -239,6 +247,34 @@ export default async function CourseDetailPage({
               </div>
               {material.rag_status === "failed" && material.rag_error && (
                 <p className="mt-2 text-xs text-red-600 dark:text-red-400">{material.rag_error}</p>
+              )}
+              {material.kind === "syllabus" && (
+                <div className="mt-2 flex items-center gap-2">
+                  {material.shared_at ? (
+                    <>
+                      <span className="text-xs text-sky-600 dark:text-sky-400">
+                        共有ライブラリに公開中(F21)
+                      </span>
+                      <form action={boundUnshareAction}>
+                        <button
+                          type="submit"
+                          className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        >
+                          共有を取り消す
+                        </button>
+                      </form>
+                    </>
+                  ) : (
+                    <form action={boundShareAction}>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        共有ライブラリに公開する(F21)
+                      </button>
+                    </form>
+                  )}
+                </div>
               )}
             </li>
           );

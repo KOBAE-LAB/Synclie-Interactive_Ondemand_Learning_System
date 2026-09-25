@@ -129,6 +129,43 @@ export async function updatePersonaAction(
   redirect(`/courses/${courseId}/personas`);
 }
 
+// F21: ペルソナを組織の共有ライブラリに公開する。同じ組織の教師は自動的に複製できる
+// (承認不要)。他組織の教師は/libraryから共有リクエスト→組織の承認者の判断を経て複製する。
+// 下書きの品質を担保するため、承認済み以上のペルソナだけを共有できるようにする。
+export async function sharePersonaAction(courseId: string, personaId: string) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+  const persona = await getOwnedPersona(admin, courseId, personaId);
+  if (persona.status === "draft") {
+    throw new Error("下書きのペルソナは共有できません。承認してから共有してください。");
+  }
+
+  const { error } = await admin
+    .from("personas")
+    .update({ shared_at: new Date().toISOString() })
+    .eq("id", personaId);
+  if (error) {
+    throw new Error(`共有に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/courses/${courseId}/personas`);
+}
+
+export async function unsharePersonaAction(courseId: string, personaId: string) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+  await getOwnedPersona(admin, courseId, personaId);
+
+  const { error } = await admin.from("personas").update({ shared_at: null }).eq("id", personaId);
+  if (error) {
+    throw new Error(`共有の取り消しに失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/courses/${courseId}/personas`);
+}
+
 export async function deletePersonaAction(courseId: string, personaId: string) {
   const { user } = await requireRole("teacher");
   const admin = createAdminClient();

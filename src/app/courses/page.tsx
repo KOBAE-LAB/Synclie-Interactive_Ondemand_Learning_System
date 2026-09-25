@@ -24,6 +24,14 @@ export default async function CoursesPage() {
       <p className="mt-1 text-sm text-zinc-500">
         {user.name ?? user.email} さんが担当する授業(F01: 授業・資料の登録)
       </p>
+      <div className="mt-1 flex gap-3 text-sm text-zinc-500">
+        <Link href="/organization" className="hover:underline">
+          組織(F21)→
+        </Link>
+        <Link href="/library" className="hover:underline">
+          共有ライブラリ(F21)→
+        </Link>
+      </div>
 
       <form
         action={createCourseAction}

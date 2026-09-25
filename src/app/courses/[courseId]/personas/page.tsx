@@ -9,6 +9,8 @@ import {
   activatePersonaAction,
   deactivatePersonaAction,
   generateEvolvedPersonasAction,
+  sharePersonaAction,
+  unsharePersonaAction,
   type PersonaStatus,
 } from "./actions";
 import { PersonaForm } from "./persona-form";
@@ -20,6 +22,7 @@ interface PersonaRow {
   status: PersonaStatus;
   profile: { role?: string } | null;
   origin_note: string | null;
+  shared_at: string | null;
 }
 
 interface CorpusEntryRow {
@@ -68,7 +71,7 @@ export default async function PersonasPage({
 
   const { data: personas } = await admin
     .from("personas")
-    .select("id, name, tier, status, profile, origin_note")
+    .select("id, name, tier, status, profile, origin_note, shared_at")
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
 
@@ -152,6 +155,8 @@ export default async function PersonasPage({
           const boundApproveAction = approvePersonaAction.bind(null, courseId, persona.id);
           const boundActivateAction = activatePersonaAction.bind(null, courseId, persona.id);
           const boundDeactivateAction = deactivatePersonaAction.bind(null, courseId, persona.id);
+          const boundShareAction = sharePersonaAction.bind(null, courseId, persona.id);
+          const boundUnshareAction = unsharePersonaAction.bind(null, courseId, persona.id);
 
           return (
             <li
@@ -221,6 +226,32 @@ export default async function PersonasPage({
               {persona.origin_note && (
                 <p className="mt-2 text-xs text-zinc-400">生成理由: {persona.origin_note}</p>
               )}
+              <div className="mt-2 flex items-center gap-2">
+                {persona.shared_at ? (
+                  <>
+                    <span className="text-xs text-sky-600 dark:text-sky-400">共有ライブラリに公開中(F21)</span>
+                    <form action={boundUnshareAction}>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        共有を取り消す
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  persona.status !== "draft" && (
+                    <form action={boundShareAction}>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        共有ライブラリに公開する(F21)
+                      </button>
+                    </form>
+                  )
+                )}
+              </div>
             </li>
           );
         })}
