@@ -26,9 +26,14 @@ export default async function LearnCoursesPage() {
     <div className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">授業一覧</h1>
       <p className="mt-1 text-sm text-zinc-500">{user.name ?? user.email} さん</p>
-      <Link href="/learn/data" className="mt-1 inline-block text-sm text-zinc-500 hover:underline">
-        自分のデータ(F16)→
-      </Link>
+      <div className="mt-1 flex gap-3 text-sm text-zinc-500">
+        <Link href="/learn/dashboard" className="hover:underline">
+          学習ダッシュボード(F23)→
+        </Link>
+        <Link href="/learn/data" className="hover:underline">
+          自分のデータ(F16)→
+        </Link>
+      </div>
 
       <ul className="mt-8 space-y-2">
         {(courses ?? []).map((course) => (
