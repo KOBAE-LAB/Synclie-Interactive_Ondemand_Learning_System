@@ -67,22 +67,46 @@ async function getOrCreateSession(admin: AdminClient, courseId: string, studentI
   return created.id as string;
 }
 
-// F04で「使用中」にした擬似メンバーの中から、このセッションでまだあまり
-// 発言していないペルソナを選ぶ(単純な均等割り。複数人いる場合の話者調整)。
+// 学習者はペルソナの正式名(教師が付けた「討論好きの山田くん」のような説明的な名前)を
+// 全部書くとは限らず、「山田くん」のような末尾の呼び名だけで名指しすることが多い。
+// そのため名前の末尾からの部分一致(3文字以上)で名指しを判定する。
+function isPersonaMentioned(personaName: string, message: string): boolean {
+  const MIN_SUFFIX_LEN = 3;
+  for (let len = personaName.length; len >= MIN_SUFFIX_LEN; len--) {
+    if (message.includes(personaName.slice(-len))) return true;
+  }
+  return false;
+}
+
+// F04で「使用中」にした擬似メンバーの中から、次に発言する1人を選ぶ。
+// 単純な「発言が少ない順」の均等割りだけだと、複数人いる時に機械的な順番待ちに
+// 見えて不自然だという指摘を受け、(1)学習者の発言で名指しされたペルソナがいれば
+// それを優先し、(2)無ければ発言が少ないペルソナの中からランダムに選ぶ
+// (同数のペルソナが常に同じ順で選ばれる「順番に発言している」感じを崩すため)。
+// 戻り値には、選ばれなかった他の使用中ペルソナも含める(他の参加者の立場を
+// 本人の発言生成時に伝え、根拠のある反論ができるようにするため)。
 async function pickRespondingPersona(
   admin: AdminClient,
   courseId: string,
   sessionId: string,
-): Promise<ActivePersonaRow | null> {
-  const { data: activePersonas } = await admin
+  latestMessage: string,
+): Promise<{ chosen: ActivePersonaRow; others: ActivePersonaRow[] } | null> {
+  const { data: activePersonasData } = await admin
     .from("personas")
     .select("id, name, profile, stance, behavior_rules")
     .eq("course_id", courseId)
     .eq("status", "active")
     .order("created_at", { ascending: true });
 
-  if (!activePersonas || activePersonas.length === 0) return null;
-  if (activePersonas.length === 1) return activePersonas[0] as ActivePersonaRow;
+  const activePersonas = (activePersonasData ?? []) as ActivePersonaRow[];
+  if (activePersonas.length === 0) return null;
+  if (activePersonas.length === 1) return { chosen: activePersonas[0], others: [] };
+
+  // 名指しされていれば、話者調整より優先してその人に答えさせる。
+  const mentioned = activePersonas.find((p) => isPersonaMentioned(p.name, latestMessage));
+  if (mentioned) {
+    return { chosen: mentioned, others: activePersonas.filter((p) => p.id !== mentioned.id) };
+  }
 
   const { data: personaTurns } = await admin
     .from("dialogue_turns")
@@ -98,16 +122,10 @@ async function pickRespondingPersona(
     }
   }
 
-  let chosen = activePersonas[0];
-  let fewestTurns = Infinity;
-  for (const persona of activePersonas) {
-    const count = turnCounts.get(persona.id) ?? 0;
-    if (count < fewestTurns) {
-      fewestTurns = count;
-      chosen = persona;
-    }
-  }
-  return chosen as ActivePersonaRow;
+  const fewestTurns = Math.min(...activePersonas.map((p) => turnCounts.get(p.id) ?? 0));
+  const candidates = activePersonas.filter((p) => (turnCounts.get(p.id) ?? 0) === fewestTurns);
+  const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  return { chosen, others: activePersonas.filter((p) => p.id !== chosen.id) };
 }
 
 function buildBehaviorNotes(rules: ActivePersonaRow["behavior_rules"]): string | undefined {
@@ -155,13 +173,14 @@ async function postStudentMessageAndRespond(
     throw new Error(`発言の保存に失敗しました: ${studentTurnError?.message ?? "不明なエラー"}`);
   }
 
-  const persona = await pickRespondingPersona(admin, courseId, sessionId);
-  if (!persona) {
+  const picked = await pickRespondingPersona(admin, courseId, sessionId, message);
+  if (!picked) {
     // 使用中のペルソナがまだいない。学習者の発言だけ保存して終わる
     // (教師がF04でペルソナを承認・有効化するまで、擬似メンバーは発言しない)。
     revalidatePath(`/learn/${courseId}`);
     return;
   }
+  const { chosen: persona, others } = picked;
 
   const materialChunks = await searchMaterialChunks(courseId, message);
   const materialText =
@@ -171,17 +190,32 @@ async function postStudentMessageAndRespond(
 
   const { data: recentTurns } = await admin
     .from("dialogue_turns")
-    .select("speaker_type, content")
+    .select("speaker_type, content, persona_id")
     .eq("session_id", sessionId)
     .order("created_at", { ascending: false })
     .limit(HISTORY_LIMIT);
 
+  // 複数のペルソナが同じ授業にいる場合、擬似メンバーの発言は全てrole:"assistant"に
+  // なるため、話者名を先頭に付けて区別できるようにする(付けないと、他のペルソナの
+  // 発言が自分自身の過去の発言に見えてしまい、反論が機能しなくなる)。
+  const historyPersonaIds = [
+    ...new Set((recentTurns ?? []).map((t) => t.persona_id).filter((id): id is string => !!id)),
+  ];
+  const { data: historyPersonaRows } =
+    historyPersonaIds.length > 0
+      ? await admin.from("personas").select("id, name").in("id", historyPersonaIds)
+      : { data: [] };
+  const historyPersonaNames = new Map((historyPersonaRows ?? []).map((p) => [p.id, p.name]));
+
   const history: ChatTurn[] = (recentTurns ?? [])
     .reverse()
-    .map((turn) => ({
-      role: turn.speaker_type === "student" ? ("user" as const) : ("assistant" as const),
-      content: turn.content,
-    }));
+    .map((turn) => {
+      if (turn.speaker_type === "student") {
+        return { role: "user" as const, content: turn.content };
+      }
+      const speakerName = turn.persona_id ? (historyPersonaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー";
+      return { role: "assistant" as const, content: `${speakerName}: ${turn.content}` };
+    });
 
   // F20: 論証評価(F20/F24共有コンポーネント)で、学習者の直近発言が新しい根拠・具体例を
   // 含むかを判定する。失敗しても対話自体は止めない(評価は計測のための付加情報のため)。
@@ -233,6 +267,18 @@ async function postStudentMessageAndRespond(
     guidanceLines.push(`- 難度・足場かけの調整: ${personalization.difficulty_adjustment}`);
   }
 
+  // 他にも使用中のペルソナがいれば、その立場を伝えておく。学習者だけでなく
+  // 他の擬似メンバーの発言にも根拠なく同調しないための材料になる(反論を機能させる)。
+  const otherParticipants =
+    others.length > 0
+      ? others
+          .map(
+            (p) =>
+              `- ${p.name}(${p.profile?.role ?? "役割未設定"}): 立場「${p.stance?.position ?? "(未設定)"}」`,
+          )
+          .join("\n")
+      : undefined;
+
   const personaProfile: PersonaProfile = {
     name: persona.name,
     role: persona.profile?.role ?? "",
@@ -241,6 +287,7 @@ async function postStudentMessageAndRespond(
     materialText,
     behaviorNotes: buildBehaviorNotes(persona.behavior_rules),
     turnGuidance: guidanceLines.length > 0 ? guidanceLines.join("\n") : undefined,
+    otherParticipants,
   };
 
   let replyText: string;

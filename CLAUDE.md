@@ -245,10 +245,23 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
     本番投入前に受講登録ベースの絞り込みが必要)。`[courseId]/page.tsx`が実際のチャット画面。
     学習者ごとに1つの進行中セッション(`learning_sessions`, `ended_at is null`)を
     get-or-createし、発言のたびに`actions.ts`の`sendMessageAction`が
-    (1)学習者発言を保存 → (2)F04で`active`にした擬似メンバーの中から発言が少ない順に1体選ぶ
-    (`pickRespondingPersona`、複数体いる場合の簡易な話者調整) → (3)`src/lib/rag/search.ts`で
-    授業RAG(F02の`material_chunks`)から関連チャンクを検索 → (4)`src/lib/ai/persona.ts`の
-    `askPersona`で発言を生成 → (5)保存、の順で処理する。
+    (1)学習者発言を保存 → (2)F04で`active`にした擬似メンバーの中から1体選ぶ
+    (`pickRespondingPersona`。複数体いる場合、学習者の発言で名指しされた
+    ペルソナがいればそれを優先し(`isPersonaMentioned`、正式名の末尾一致で
+    「山田くん」のような略した呼び方にも対応)、無ければ発言が少ないペルソナの中から
+    ランダムに選ぶ。「発言が少ない順に機械的に選ぶと、複数人いる時に順番に発言している
+    ような不自然さがある」という指摘を受けて、名指し優先+同数内ランダムに直した) →
+    (3)`src/lib/rag/search.ts`で授業RAG(F02の`material_chunks`)から関連チャンクを検索 →
+    (4)`src/lib/ai/persona.ts`の`askPersona`で発言を生成 → (5)保存、の順で処理する。
+    複数のペルソナがいる授業では、擬似メンバーの発言は全て`dialogue_turns`上
+    `speaker_type='persona'`という同じ扱いになるため、LLMに渡す会話履歴でも
+    他のペルソナの発言が自分の発言と区別できず、「反論が機能しない」という指摘が出た
+    (他のペルソナの発言をrole:"assistant"としてそのまま渡すと、モデルからは
+    自分自身の過去の発言に見えてしまうため)。対策として、履歴内の擬似メンバーの発言には
+    話者名を先頭に付け(`まだ分からないコウタくん: ...`)、`askPersona`に渡す
+    `PersonaProfile.otherParticipants`で他の使用中ペルソナの名前・立場も伝えるようにした
+    (`persona.ts`の`buildPersonaSystemPrompt`と`COMMON_GUARDRAILS`に、学習者だけでなく
+    他の擬似メンバーの発言にも根拠なく同調しない旨を追記)。
     同じページの下段にF06(テキスト入力)の「成果を提出する」フォームがある
     (`submitOutcomeAction`)。`dialogue_turns`(逐次のやり取り)とは別に、議論を経て
     まとめた「成果」を`submissions`テーブルに保存する。各提出物には「フィードバックをもらう」

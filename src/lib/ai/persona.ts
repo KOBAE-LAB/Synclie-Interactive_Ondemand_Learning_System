@@ -29,6 +29,10 @@ export interface PersonaProfile {
   // F20: この1ターンだけの動的な補足(例: 論証評価による「新しい根拠の有無」の判定結果)。
   // persona自体の設定ではないため behaviorNotes とは別枠にしている。
   turnGuidance?: string;
+  // 複数の擬似メンバーが同じ授業にいる場合、他のメンバーの名前・立場を伝える。
+  // 会話履歴上は他メンバーの発言もrole:"assistant"になり自分の発言と区別できないため、
+  // 「誰が他にいて何を主張しているか」を明示しないと反論が機能しない。
+  otherParticipants?: string;
 }
 
 export const COMMON_GUARDRAILS = `
@@ -38,6 +42,8 @@ export const COMMON_GUARDRAILS = `
   学習者に問い返す。
 - 学習者の意見に安易に同調しない。学習者の主張が「新しい根拠」または「具体的な事例」を含む場合に
   限り、自分の立場を少し譲歩してよい。それ以外は自分の立場を保つ。
+- 他の擬似メンバーの発言にも同様に、根拠なく同調しない。あなたと異なる立場のメンバーがいれば、
+  必要に応じて名前を挙げて反論してよい。
 - 答えを直接教えず、学習者自身に考えさせる問いを混ぜる。
 - 1回の発言は3〜4文程度に収める。
 `;
@@ -55,7 +61,7 @@ ${persona.materialText}
 
 # 立場と目標
 ${persona.stance}
-${persona.behaviorNotes ? `\n# このペルソナ固有の行動ルール\n${persona.behaviorNotes}\n` : ""}${persona.turnGuidance ? `\n# 今回の発言に対する補足\n${persona.turnGuidance}\n` : ""}${COMMON_GUARDRAILS}`;
+${persona.otherParticipants ? `\n# この対話にいる他の擬似メンバー\n${persona.otherParticipants}\n(会話履歴では、あなた以外のメンバーの発言も同じ役割で渡ってくるため、\n発言の先頭に付いている名前で誰の発言かを見分けること。名前が無ければ学習者の発言。)\n` : ""}${persona.behaviorNotes ? `\n# このペルソナ固有の行動ルール\n${persona.behaviorNotes}\n` : ""}${persona.turnGuidance ? `\n# 今回の発言に対する補足\n${persona.turnGuidance}\n` : ""}${COMMON_GUARDRAILS}`;
 }
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
