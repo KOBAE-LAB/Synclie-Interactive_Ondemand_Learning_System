@@ -91,7 +91,7 @@ export default async function LtiContinuePage() {
       redirect(`/courses/lti-deep-link?${params.toString()}`);
     }
     return (
-      <div className="mx-auto max-w-md px-6 py-12 text-sm text-zinc-600 dark:text-zinc-400">
+      <div className="mx-auto max-w-md px-6 py-12 text-sm text-ink-muted">
         <p>
           この課題にはまだSynclieの授業が設定されていません。教師がLMSの課題設定画面から
           もう一度、授業を選び直す必要があります。

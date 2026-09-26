@@ -185,18 +185,18 @@ export default async function CourseDashboardPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <Link href={`/courses/${courseId}`} className="text-sm text-zinc-500 hover:underline">
+      <Link href={`/courses/${courseId}`} className="text-sm text-ink-muted hover:underline">
         ← {course.title}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         教師ダッシュボード(F14)
       </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         参加状況・つまずき・擬似メンバーの挙動をまとめて確認し、学級・個人の指導計画に活かす。
         各行から学習者プロファイルの確認・生成(F09)や個別最適化の判断(F11)にそのまま進める。
       </p>
 
-      <h2 className="mt-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <h2 className="mt-8 text-sm font-medium text-ink">
         学習者の参加状況とつまずき
       </h2>
       <ul className="mt-3 space-y-2">
@@ -209,73 +209,73 @@ export default async function CourseDashboardPage({
               key={stat.studentId}
               className={`rounded-md border px-4 py-3 text-sm ${
                 struggling
-                  ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
-                  : "border-zinc-200 dark:border-zinc-800"
+                  ? "border-warn bg-warn-soft"
+                  : "border-line"
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="font-medium text-zinc-950 dark:text-zinc-50">
+                <span className="font-medium text-ink">
                   {studentNames.get(stat.studentId) ?? "(不明な学習者)"}
                 </span>
                 <Link
                   href={`/courses/${courseId}/students#${stat.studentId}`}
-                  className="shrink-0 text-xs text-zinc-500 hover:underline"
+                  className="shrink-0 text-xs text-ink-muted hover:underline"
                 >
                   プロファイル・提案を見る(F09/F11)→
                 </Link>
               </div>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-ink-muted">
                 発言{stat.turnCount}件・提出{stat.submissionCount}件
                 {stat.avgScore !== null && `・論証評価平均${stat.avgScore.toFixed(1)}点`}
                 {stat.lastActivityAt &&
                   `・最終活動 ${new Date(stat.lastActivityAt).toLocaleString("ja-JP")}`}
               </p>
               {stat.turnCount > 0 && stat.submissionCount === 0 && (
-                <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                <p className="mt-1 text-xs text-warn">
                   対話はあるが、まだ成果(F06)を提出していない。
                 </p>
               )}
               {stat.avgScore !== null && stat.avgScore < STRUGGLE_SCORE_THRESHOLD && (
-                <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                <p className="mt-1 text-xs text-warn">
                   論証評価の平均が低め(根拠・論理構成・反論への応答)。
                 </p>
               )}
               {stat.challenges && (
-                <p className="mt-1 text-xs text-zinc-500">課題(F09): {stat.challenges}</p>
+                <p className="mt-1 text-xs text-ink-muted">課題(F09): {stat.challenges}</p>
               )}
             </li>
           );
         })}
         {statList.length === 0 && (
-          <li className="text-sm text-zinc-500">まだ活動記録のある学習者がいません。</li>
+          <li className="text-sm text-ink-muted">まだ活動記録のある学習者がいません。</li>
         )}
       </ul>
 
-      <h2 className="mt-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <h2 className="mt-8 text-sm font-medium text-ink">
         擬似メンバーの挙動(F20)
       </h2>
       <ul className="mt-3 space-y-2">
         {[...personaStats.entries()].map(([personaId, stat]) => (
           <li key={personaId} className="flex flex-wrap items-center justify-between text-sm">
             <span>{personaNames.get(personaId) ?? "(承認待ち等)"}</span>
-            <span className="text-zinc-500">
+            <span className="text-ink-muted">
               根拠なく同調 {stat.unwarranted}/{stat.total}件(
               {Math.round((stat.unwarranted / stat.total) * 100)}%)
             </span>
           </li>
         ))}
-        {personaStats.size === 0 && <li className="text-sm text-zinc-500">まだ評価データがありません。</li>}
+        {personaStats.size === 0 && <li className="text-sm text-ink-muted">まだ評価データがありません。</li>}
       </ul>
       <Link
         href={`/courses/${courseId}/conformity`}
-        className="mt-2 inline-block text-xs text-zinc-500 hover:underline"
+        className="mt-2 inline-block text-xs text-ink-muted hover:underline"
       >
         発言単位の詳細を見る(F20)→
       </Link>
       <br />
       <Link
         href={`/courses/${courseId}/audit`}
-        className="mt-1 inline-block text-xs text-zinc-500 hover:underline"
+        className="mt-1 inline-block text-xs text-ink-muted hover:underline"
       >
         発言を確認・修正する(F15)→
       </Link>

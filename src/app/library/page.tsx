@@ -113,8 +113,8 @@ export default async function LibraryPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">共有ライブラリ(F21)</h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <h1 className="text-2xl font-semibold text-ink">共有ライブラリ(F21)</h1>
+      <p className="mt-1 text-sm text-ink-muted">
         他の教師が公開したペルソナ・教材(単元の対応表)を自分の授業に複製できる。同じ組織なら
         即時複製、他組織なら
         <Link href="/organization" className="mx-1 underline">
@@ -123,7 +123,7 @@ export default async function LibraryPage() {
         の承認が必要。
       </p>
       {!myOrgId && (
-        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <p className="mt-2 rounded-md border border-warn bg-warn-soft px-4 py-3 text-sm text-warn">
           まだ組織に参加していません。
           <Link href="/organization" className="ml-1 underline">
             組織に参加する
@@ -132,7 +132,7 @@ export default async function LibraryPage() {
         </p>
       )}
 
-      <h2 className="mt-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <h2 className="mt-8 text-sm font-medium text-ink">
         共有されているペルソナ({personaRows.length}件)
       </h2>
       <ul className="mt-3 space-y-3">
@@ -145,15 +145,15 @@ export default async function LibraryPage() {
           const boundRequest = requestCrossOrgAccessAction.bind(null, "persona", persona.id);
 
           return (
-            <li key={persona.id} className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
+            <li key={persona.id} className="rounded-md border border-line px-4 py-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="font-medium text-zinc-950 dark:text-zinc-50">
+                <span className="font-medium text-ink">
                   {persona.name}
-                  {persona.profile?.role && <span className="ml-2 text-zinc-500">({persona.profile.role})</span>}
+                  {persona.profile?.role && <span className="ml-2 text-ink-muted">({persona.profile.role})</span>}
                 </span>
-                {isOwn && <span className="text-xs text-zinc-400">自分の共有</span>}
+                {isOwn && <span className="text-xs text-ink-faint">自分の共有</span>}
               </div>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-ink-muted">
                 公開元: {ownerId ? teacherName.get(ownerId) : "(不明)"} ・ {courseTitle.get(persona.course_id)}
                 {!isOwn && (sameOrg ? "(同じ組織)" : "(他組織)")}
               </p>
@@ -165,7 +165,7 @@ export default async function LibraryPage() {
                     required
                     defaultValue=""
                     aria-label="複製先の授業"
-                    className="rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                    className="rounded-md border border-line px-2 py-1 text-xs bg-surface-raised"
                   >
                     <option value="" disabled>
                       複製先の授業
@@ -178,7 +178,7 @@ export default async function LibraryPage() {
                   </select>
                   <SubmitButton
                     pendingText="複製中…"
-                    className="rounded-md bg-zinc-950 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                    className="rounded-md bg-accent-fill px-2.5 py-1 text-xs font-medium text-white hover:bg-accent-fill-hover disabled:opacity-50"
                   >
                     複製する
                   </SubmitButton>
@@ -188,22 +188,22 @@ export default async function LibraryPage() {
                 <form action={boundRequest} className="mt-2">
                   <button
                     type="submit"
-                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                   >
                     共有をリクエストする
                   </button>
                 </form>
               )}
               {!isOwn && !sameOrg && status !== "none" && (
-                <p className="mt-2 text-xs text-zinc-500">{SHARE_STATUS_LABELS[status]}</p>
+                <p className="mt-2 text-xs text-ink-muted">{SHARE_STATUS_LABELS[status]}</p>
               )}
             </li>
           );
         })}
-        {personaRows.length === 0 && <li className="text-sm text-zinc-500">共有されているペルソナはありません。</li>}
+        {personaRows.length === 0 && <li className="text-sm text-ink-muted">共有されているペルソナはありません。</li>}
       </ul>
 
-      <h2 className="mt-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <h2 className="mt-8 text-sm font-medium text-ink">
         共有されている教材・単元の対応表({materialRows.length}件)
       </h2>
       <ul className="mt-3 space-y-3">
@@ -216,12 +216,12 @@ export default async function LibraryPage() {
           const boundRequest = requestCrossOrgAccessAction.bind(null, "material", material.id);
 
           return (
-            <li key={material.id} className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
+            <li key={material.id} className="rounded-md border border-line px-4 py-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="font-medium text-zinc-950 dark:text-zinc-50">{material.title}</span>
-                {isOwn && <span className="text-xs text-zinc-400">自分の共有</span>}
+                <span className="font-medium text-ink">{material.title}</span>
+                {isOwn && <span className="text-xs text-ink-faint">自分の共有</span>}
               </div>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-ink-muted">
                 公開元: {ownerId ? teacherName.get(ownerId) : "(不明)"} ・ {courseTitle.get(material.course_id)}
                 {!isOwn && (sameOrg ? "(同じ組織)" : "(他組織)")}
               </p>
@@ -233,7 +233,7 @@ export default async function LibraryPage() {
                     required
                     defaultValue=""
                     aria-label="複製先の授業"
-                    className="rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                    className="rounded-md border border-line px-2 py-1 text-xs bg-surface-raised"
                   >
                     <option value="" disabled>
                       複製先の授業
@@ -246,7 +246,7 @@ export default async function LibraryPage() {
                   </select>
                   <SubmitButton
                     pendingText="複製中…"
-                    className="rounded-md bg-zinc-950 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                    className="rounded-md bg-accent-fill px-2.5 py-1 text-xs font-medium text-white hover:bg-accent-fill-hover disabled:opacity-50"
                   >
                     複製する
                   </SubmitButton>
@@ -256,19 +256,19 @@ export default async function LibraryPage() {
                 <form action={boundRequest} className="mt-2">
                   <button
                     type="submit"
-                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                   >
                     共有をリクエストする
                   </button>
                 </form>
               )}
               {!isOwn && !sameOrg && status !== "none" && (
-                <p className="mt-2 text-xs text-zinc-500">{SHARE_STATUS_LABELS[status]}</p>
+                <p className="mt-2 text-xs text-ink-muted">{SHARE_STATUS_LABELS[status]}</p>
               )}
             </li>
           );
         })}
-        {materialRows.length === 0 && <li className="text-sm text-zinc-500">共有されている教材はありません。</li>}
+        {materialRows.length === 0 && <li className="text-sm text-ink-muted">共有されている教材はありません。</li>}
       </ul>
     </div>
   );

@@ -43,7 +43,7 @@
 - **C**: 初等中等教育の教科独習(「教わる側」「別の考えを持つ仲間」ペルソナ)
 - **D**: 大学・企業等での討論学習(対立するペルソナとの議論、AIジャッジ評価)
 
-## 4. 機能要件(F01–F25)の要点
+## 4. 機能要件(F01–F26)の要点
 
 詳細は要件定義書4章の表を参照。特に重要なもの:
 
@@ -84,6 +84,16 @@
   最も合う候補を推薦する方式(都度の画像生成はコストが重いため行わない)。推薦は手動選択でいつでも
   上書きでき、教師が最終的に採用・変更できるようにしている(AIが一方的に見た目を固定しない)。
   実装済み。詳細は8章の`src/lib/ai/persona-avatar.ts`の説明を参照
+- **F26 横断的な学びの記録とAIフィードバック**(推奨/段階2): F09(学習者プロファイル)・
+  F11(個別最適化支援)は授業ごとに生成するが、SSO(F22)の永続IDで学習者を跨授業・跨年度で
+  追跡できることを活かし、学習者本人が関わった**全ての授業を横断**して振り返り、
+  自律的に学びを調整できるようにする。F11と違い教師の採用は挟まず、学習者本人にそのまま
+  提示する提案である点が異なるため、別テーブル(`learner_profiles`/`learner_suggestions`)・
+  別AIモジュール(`src/lib/ai/learner-suggestions.ts`)にしている(促し方・難度調整の観点を
+  「ペルソナへの指示」ではなく「学習者自身の行動」に読み替えたプロンプトにしてある)。
+  自動生成はせず、生徒ダッシュボード(F23)で学習者本人が明示的に押したときだけ生成する。
+  実装済み。詳細は8章の`src/app/learn/dashboard/`の説明を参照。学校・組織をまたいで
+  集約する場合の外部連携は12章の未決事項(要検討)
 
 ## 5. 「論証評価」共有コンポーネント
 
@@ -119,6 +129,13 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
 
 ## 7. 技術スタック(段階1)
 
+- **配色・ロゴ**: 姉妹アプリ「Synclie - Share」(同じKOBAE-LABブランド)に合わせてある。
+  `src/app/globals.css`の`@theme`ブロック(canvas/surface/ink/accent/danger/success/warn等の
+  トークン)は`synclie-share`の`src/app/globals.css`と値を揃えているので、**配色を変える時は
+  両方のアプリで揃えて直すこと**。黒基調のダークテーマを既定にしている(教室のプロジェクタでは
+  明るい地だと周りが見えにくくなるため。ライト/ダーク自動切替はやめ、単一テーマにした)。
+  ロゴ(`public/logo.png`・`src/app/icon.png`、KOBAE-LABのマスコット)は
+  `src/app/layout.tsx`のヘッダーと`src/app/login/page.tsx`に配置している
 - **フロントエンド/バックエンド**: Next.js (TypeScript, App Router)。API RoutesとServer Actionsを併用。
 - **DB/ベクトル検索/ストレージ**: Supabase (Postgres + pgvector)。プロジェクトは東京リージョン
   (ap-northeast-1)、組織KOBAE-LAB。2026-09-25に元プロジェクト(ap-southeast-2)から
@@ -154,6 +171,13 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
   手書き/音声の確認送信・AIフィードバック/AIジャッジ/学習者プロファイル/個別最適化提案/
   アバター推薦/LMS成績送信/共有ライブラリの複製など、AI呼び出しやネットワーク呼び出しを
   伴うボタンに適用した(即時完了する承認・削除・共有トグルなどには適用していない)
+- `src/components/thinking-indicator.tsx` — `ThinkingIndicator`。発言送信フォームの中に
+  置き、擬似メンバーの応答が返るまでの間「(相手が)考えています」+点滅ドットを表示する
+  (`SubmitButton`と同じ理由で`"use client"`)。「臨場感・社会的存在感を大事にしたい」
+  という要望を受けて追加した。あわせて`globals.css`にアバター用の控えめなアイドル
+  アニメーション(`.avatar-idle`、静止画+CSSのみでVR等は使わない方針)と、直近に発言した
+  擬似メンバーを`learn/[courseId]/page.tsx`の対話相手アバター行で緑のリングで
+  ハイライトする仕組みを追加した。どちらも`prefers-reduced-motion`を尊重して無効化する
 - `src/app/` — Next.js App Router のページ・APIルート
   - `src/app/page.tsx` — ログイン後の行き先をロールで振り分ける(教師→`/courses`、
     学習者→`/learn`)。`login/actions.ts`の`loginAction`は`redirectTo: "/"`固定にしてあり、
@@ -172,7 +196,8 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
     学習者に紐づくテーブルを追加するたびに、ここも合わせて更新すること(F12実装時に
     手書き画像のStorageファイル削除と、抜けていたF11の`personalization_suggestions`削除を
     追加で拾った。F13実装時に音声ファイルの削除も同様に追加した。F23実装時に
-    `study_plan_items`削除も追加した。F24実装時に`discussion_judgments`削除も追加した)
+    `study_plan_items`削除も追加した。F24実装時に`discussion_judgments`削除も追加した。
+    F26実装時に`learner_profiles`/`learner_suggestions`削除も追加した)
   - `src/app/learn/dashboard/` — F23(生徒ダッシュボード)。「学習者が自分の学習履歴
     (対話ログ、成果物、フィードバック、振り返り)を一覧で確認し、AIの提案をもとに次に
     取り組む学習計画を立てられる」(要件定義書4章)。F14(教師ダッシュボード)と同じ方針で、
@@ -180,7 +205,13 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
     (`learning_sessions`基準)の発言数・提出数・最終活動日時、F11で採用済みの探究テーマ
     提案、F08の振り返りの「次にやりたいこと」を横断的に一覧表示する。「学習計画を立てられる」
     の部分だけは既存データで表現できないため、学習者が自分で追加・完了・削除できる
-    簡単なTODOリスト(`study_plan_items`、授業を指定してもしなくてもよい)を新設した
+    簡単なTODOリスト(`study_plan_items`、授業を指定してもしなくてもよい)を新設した。
+    同じ画面にF26(横断的な学びの記録とAIフィードバック)がある。F23自体は「新規のAI呼び出しを
+    しない」画面だが、F26はその方針の中で唯一の例外として、学習者本人が明示的に押したときだけ
+    AIを呼ぶ(`actions.ts`の`generateLearnerProfileAction`/`generateLearnerSuggestionsAction`)。
+    `courses/[courseId]/students/actions.ts`の`buildActivityLog`(F09、授業単位)と同じ形の
+    `buildCrossCourseActivityLog`を使うが、`course_id`で絞らず学習者の全提出物を束ねる点が違う。
+    生成結果は`learner_profiles`/`learner_suggestions`(courseに紐づかない、学習者1人1行)に保存する
   - `src/app/learn/` — F05(擬似メンバー対話)。学習者向け。`page.tsx`は全授業の一覧
     (段階1には受講登録の仕組みがまだ無いため、ログイン中の学習者に全授業を見せる簡易実装。
     本番投入前に受講登録ベースの絞り込みが必要)。`[courseId]/page.tsx`が実際のチャット画面。
@@ -351,6 +382,11 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
   ペルソナのアバター推薦(`persona-avatar.ts`、F25。候補の画像そのものではなく、各候補に
   付けたラベル・タグ(テキスト)だけを`MODEL_JUDGE`に渡して選ばせる。画像を都度生成/都度
   読ませるコストをどちらも避けるため)、
+  横断的な学びの記録に基づく学習者向け提案生成(`learner-suggestions.ts`、F26。
+  `personalization.ts`(F11)と4観点は同じだが、教師がペルソナに反映するF11と異なり
+  学習者本人にそのまま提示するため、促し方・難度調整を「学習者自身の行動」に
+  読み替えた別プロンプト・別スキーマにしてある。プロファイル要約自体は`student-profile.ts`
+  (F09と共通)をそのまま使う)、
   OpenAIクライアント(`openai.ts`。`MODEL_TRANSCRIBE`もここで定義)
 - `src/lib/rag/` — F02(RAG生成)。`extract.ts`(PDF/Word/PPT/字幕/URLからテキスト抽出)、
   `chunk.ts`(文字数ベースの簡易チャンク分割)、`generate.ts`(抽出→分割→埋め込み→
@@ -477,6 +513,11 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
     (`file_path`/`label`/`tags`。画像本体は`public/avatars/`のSVG)を追加し、16件を
     シードする。`personas`に`avatar_id`(参照。削除時は null に戻す)・`avatar_status`
     (`pending`/`done`/`failed`)・`avatar_error`を追加(F02/F07などと同じ status/error 列)
+  - `0025_cross_course_learning_profile.sql` — F26用。`learner_profiles`(横断プロファイル、
+    学習者1人1行)・`learner_suggestions`(横断的な提案、学習者1人1行)を追加。
+    F09/F11の`student_profiles`/`personalization_suggestions`と違い`course_id`を持たない
+    (`student_id`に`unique`制約)。F11と違い教師の採用ワークフロー(status)も持たない
+    (学習者本人にそのまま見せる提案のため)
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。
@@ -543,7 +584,7 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
 ## 9. 開発の進め方
 
 - ブランチは機能ID(F01, F02, …)ベースで作成する。
-- ロードマップ(要件定義書11章): 段階1 = F01–F09, F16, F20 / 段階2 = F10–F15, F19, F21–F24 / 段階3 = F17, F18, F25
+- ロードマップ(要件定義書11章): 段階1 = F01–F09, F16, F20 / 段階2 = F10–F15, F19, F21–F24, F26 / 段階3 = F17, F18, F25
 - 段階0〜1はコストを最小化する(安価モデル優先、論証評価の呼び出し回数を絞る、支出上限を設定・監視する)。
 - 実装前に要件定義書の該当章を確認し、齟齬があれば要件定義書を更新してから実装する
   (要件定義書が「正」。このCLAUDE.mdは早見表であり、詳細判断の根拠にはしない)。

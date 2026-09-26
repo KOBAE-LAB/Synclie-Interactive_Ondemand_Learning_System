@@ -25,17 +25,17 @@ export default async function OrganizationPage() {
   if (!profile?.organization_id) {
     return (
       <div className="mx-auto max-w-2xl px-6 py-12">
-        <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">組織(F21)</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="text-2xl font-semibold text-ink">組織(F21)</h1>
+        <p className="mt-1 text-sm text-ink-muted">
           組織(学校・地域単位)に参加すると、同じ組織の教師が共有したペルソナ・教材を
           自動的に複製できるようになる(承認不要)。組織をまたぐ共有には、組織側の承認者の
           判断が必要になる。
         </p>
         <form
           action={joinOrCreateOrganizationAction}
-          className="mt-6 space-y-3 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800"
+          className="mt-6 space-y-3 rounded-lg border border-line p-5"
         >
-          <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">組織に参加する</h2>
+          <h2 className="text-sm font-medium text-ink">組織に参加する</h2>
           <label htmlFor="organization-name" className="sr-only">
             組織名
           </label>
@@ -44,15 +44,15 @@ export default async function OrganizationPage() {
             name="name"
             placeholder="組織名(例: ○○市立△△小学校)"
             required
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
           />
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-ink-muted">
             既存の組織と同じ名前を入力すれば参加、無ければ新規作成される(作成した場合は自分が
             この組織の承認者になる)。
           </p>
           <button
             type="submit"
-            className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+            className="rounded-md bg-accent-fill px-4 py-2 text-sm font-medium text-white hover:bg-accent-fill-hover"
           >
             参加する
           </button>
@@ -123,17 +123,17 @@ export default async function OrganizationPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">組織(F21)</h1>
-      <p className="mt-1 text-sm text-zinc-500">
-        所属組織: <span className="font-medium text-zinc-950 dark:text-zinc-50">{org?.name}</span>
+      <h1 className="text-2xl font-semibold text-ink">組織(F21)</h1>
+      <p className="mt-1 text-sm text-ink-muted">
+        所属組織: <span className="font-medium text-ink">{org?.name}</span>
       </p>
 
-      <div className="mt-6 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <div className="mt-6 rounded-lg border border-line p-5">
+        <h2 className="text-sm font-medium text-ink">
           共有の承認者: {memberName(org?.approver_teacher_id ?? null)}
-          {isApprover && <span className="ml-2 text-xs text-sky-600 dark:text-sky-400">(あなた)</span>}
+          {isApprover && <span className="ml-2 text-xs text-accent">(あなた)</span>}
         </h2>
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-ink-muted">
           組織をまたぐ共有リクエストを判断する人。同じ組織の教師なら誰でも変更できる。
         </p>
         <form action={setApproverAction} className="mt-3 flex items-center gap-2">
@@ -144,7 +144,7 @@ export default async function OrganizationPage() {
             id="approver-id"
             name="approverId"
             defaultValue=""
-            className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="flex-1 rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
           >
             <option value="" disabled>
               新しい承認者を選択
@@ -157,7 +157,7 @@ export default async function OrganizationPage() {
           </select>
           <button
             type="submit"
-            className="shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="shrink-0 rounded-md border border-line px-3 py-2 text-xs font-medium text-ink hover:bg-surface"
           >
             変更する
           </button>
@@ -165,8 +165,8 @@ export default async function OrganizationPage() {
       </div>
 
       <div className="mt-6">
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">組織のメンバー({(members ?? []).length}人)</h2>
-        <ul className="mt-2 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-sm font-medium text-ink">組織のメンバー({(members ?? []).length}人)</h2>
+        <ul className="mt-2 space-y-1 text-sm text-ink-muted">
           {(members ?? []).map((m) => (
             <li key={m.id}>{m.display_name || m.email}</li>
           ))}
@@ -175,7 +175,7 @@ export default async function OrganizationPage() {
 
       {isApprover && (
         <div className="mt-8">
-          <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <h2 className="text-sm font-medium text-ink">
             組織をまたぐ共有リクエスト(承認待ち {pendingRequests.length}件)
           </h2>
           <ul className="mt-3 space-y-3">
@@ -185,10 +185,10 @@ export default async function OrganizationPage() {
               return (
                 <li
                   key={request.id}
-                  className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+                  className="rounded-md border border-line px-4 py-3 text-sm"
                 >
                   <p>
-                    <span className="font-medium text-zinc-950 dark:text-zinc-50">
+                    <span className="font-medium text-ink">
                       {requesterNames.get(request.requester_teacher_id)}
                     </span>{" "}
                     さんが「{itemTitles.get(request.item_id) ?? "(不明)"}」(
@@ -198,7 +198,7 @@ export default async function OrganizationPage() {
                     <form action={boundApprove}>
                       <button
                         type="submit"
-                        className="rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                        className="rounded-md bg-accent-fill px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-fill-hover"
                       >
                         承認する
                       </button>
@@ -206,7 +206,7 @@ export default async function OrganizationPage() {
                     <form action={boundDecline}>
                       <button
                         type="submit"
-                        className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface"
                       >
                         見送る
                       </button>
@@ -216,7 +216,7 @@ export default async function OrganizationPage() {
               );
             })}
             {pendingRequests.length === 0 && (
-              <li className="text-sm text-zinc-500">承認待ちのリクエストはありません。</li>
+              <li className="text-sm text-ink-muted">承認待ちのリクエストはありません。</li>
             )}
           </ul>
         </div>

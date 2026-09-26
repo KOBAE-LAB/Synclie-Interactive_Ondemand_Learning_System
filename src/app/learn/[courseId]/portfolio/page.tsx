@@ -85,13 +85,13 @@ export default async function PortfolioPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <Link href={`/learn/${courseId}`} className="text-sm text-zinc-500 hover:underline">
+      <Link href={`/learn/${courseId}`} className="text-sm text-ink-muted hover:underline">
         ← {course.title}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         ポートフォリオ(F08)
       </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         成果・フィードバック・振り返りを時系列で振り返れます。
       </p>
 
@@ -103,33 +103,33 @@ export default async function PortfolioPage({
           return (
             <li
               key={submission.id}
-              className="rounded-md border border-zinc-200 px-4 py-4 text-sm dark:border-zinc-800"
+              className="rounded-md border border-line px-4 py-4 text-sm"
             >
-              <p className="text-xs font-medium text-zinc-400">
+              <p className="text-xs font-medium text-ink-faint">
                 {index + 1}件目 ・ {new Date(submission.created_at).toLocaleString("ja-JP")}
               </p>
 
               <div className="mt-2">
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">成果</p>
+                <p className="text-xs font-medium text-ink-muted">成果</p>
                 <p className="mt-1 whitespace-pre-wrap">{submission.content}</p>
               </div>
 
               {feedbackItems.length > 0 && (
-                <div className="mt-4 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <div className="mt-4 space-y-3 border-t border-line pt-3">
+                  <p className="text-xs font-medium text-ink-muted">
                     AIフィードバック
                   </p>
                   {feedbackItems.map((item) => (
                     <div key={item.id}>
-                      <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      <p className="text-xs font-medium text-ink-muted">
                         {item.criteria_label}
                       </p>
                       <p className="mt-1">
-                        <span className="text-zinc-500">良い点: </span>
+                        <span className="text-ink-muted">良い点: </span>
                         {item.good_points}
                       </p>
                       <p className="mt-1">
-                        <span className="text-zinc-500">次に考える問い: </span>
+                        <span className="text-ink-muted">次に考える問い: </span>
                         {item.next_question}
                       </p>
                     </div>
@@ -138,20 +138,20 @@ export default async function PortfolioPage({
               )}
 
               {reflection && (
-                <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <div className="mt-4 space-y-1 border-t border-line pt-3">
+                  <p className="text-xs font-medium text-ink-muted">
                     振り返り{reflection.shared_with_teacher && "(教師に共有中)"}
                   </p>
                   <p>
-                    <span className="text-zinc-500">学んだこと: </span>
+                    <span className="text-ink-muted">学んだこと: </span>
                     {reflection.what_learned}
                   </p>
                   <p>
-                    <span className="text-zinc-500">迷ったこと: </span>
+                    <span className="text-ink-muted">迷ったこと: </span>
                     {reflection.what_confused}
                   </p>
                   <p>
-                    <span className="text-zinc-500">次にやりたいこと: </span>
+                    <span className="text-ink-muted">次にやりたいこと: </span>
                     {reflection.next_goal}
                   </p>
                 </div>
@@ -160,7 +160,7 @@ export default async function PortfolioPage({
           );
         })}
         {submissions.length === 0 && (
-          <li className="text-sm text-zinc-500">
+          <li className="text-sm text-ink-muted">
             まだ成果がありません。授業画面から成果を提出してみましょう。
           </li>
         )}

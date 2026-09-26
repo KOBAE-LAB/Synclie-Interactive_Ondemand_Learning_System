@@ -20,11 +20,11 @@ export default async function CoursesPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">授業一覧</h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <h1 className="text-2xl font-semibold text-ink">授業一覧</h1>
+      <p className="mt-1 text-sm text-ink-muted">
         {user.name ?? user.email} さんが担当する授業(F01: 授業・資料の登録)
       </p>
-      <div className="mt-1 flex gap-3 text-sm text-zinc-500">
+      <div className="mt-1 flex gap-3 text-sm text-ink-muted">
         <Link href="/organization" className="hover:underline">
           組織(F21)→
         </Link>
@@ -35,9 +35,9 @@ export default async function CoursesPage() {
 
       <form
         action={createCourseAction}
-        className="mt-8 space-y-3 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800"
+        className="mt-8 space-y-3 rounded-lg border border-line p-5"
       >
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">新しい授業を作成</h2>
+        <h2 className="text-sm font-medium text-ink">新しい授業を作成</h2>
         <label htmlFor="course-title" className="sr-only">
           授業名
         </label>
@@ -46,7 +46,7 @@ export default async function CoursesPage() {
           name="title"
           placeholder="授業名(例: 情報活用能力の育成)"
           required
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
         />
         <label htmlFor="course-subject" className="sr-only">
           教科
@@ -55,7 +55,7 @@ export default async function CoursesPage() {
           id="course-subject"
           name="subject"
           placeholder="教科(任意)"
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
         />
         <label htmlFor="course-mode" className="sr-only">
           授業の形式
@@ -64,14 +64,14 @@ export default async function CoursesPage() {
           id="course-mode"
           name="mode"
           defaultValue="group"
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
         >
           <option value="group">グループワーク(複数の学習者、対立するペルソナと議論)</option>
           <option value="solo_study">独習(F19。「まだ分からない仲間」役のペルソナに説明する)</option>
         </select>
         <button
           type="submit"
-          className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          className="rounded-md bg-accent-fill px-4 py-2 text-sm font-medium text-white hover:bg-accent-fill-hover"
         >
           作成する
         </button>
@@ -82,18 +82,18 @@ export default async function CoursesPage() {
           <li key={course.id}>
             <Link
               href={`/courses/${course.id}`}
-              className="block rounded-md border border-zinc-200 px-4 py-3 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+              className="block rounded-md border border-line px-4 py-3 text-sm hover:bg-surface"
             >
-              <span className="font-medium text-zinc-950 dark:text-zinc-50">{course.title}</span>
+              <span className="font-medium text-ink">{course.title}</span>
               {course.subject && (
-                <span className="ml-2 text-zinc-500">({course.subject})</span>
+                <span className="ml-2 text-ink-muted">({course.subject})</span>
               )}
-              <span className="ml-2 text-xs text-zinc-400">[{MODE_LABELS[course.mode] ?? course.mode}]</span>
+              <span className="ml-2 text-xs text-ink-faint">[{MODE_LABELS[course.mode] ?? course.mode}]</span>
             </Link>
           </li>
         ))}
         {(!courses || courses.length === 0) && (
-          <li className="text-sm text-zinc-500">まだ授業がありません。上のフォームから作成してください。</li>
+          <li className="text-sm text-ink-muted">まだ授業がありません。上のフォームから作成してください。</li>
         )}
       </ul>
     </div>

@@ -66,15 +66,15 @@ export default async function EditPersonaPage({
     <div className="mx-auto max-w-2xl px-6 py-12">
       <Link
         href={`/courses/${courseId}/personas`}
-        className="text-sm text-zinc-500 hover:underline"
+        className="text-sm text-ink-muted hover:underline"
       >
         ← ペルソナ一覧
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         {persona.name} を編集
       </h1>
 
-      <div className="mt-8 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
+      <div className="mt-8 rounded-lg border border-line p-5">
         <PersonaForm
           action={boundUpdateAction}
           submitLabel="更新する"

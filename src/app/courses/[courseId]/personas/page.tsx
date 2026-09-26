@@ -65,9 +65,9 @@ const STATUS_LABELS: Record<PersonaStatus, string> = {
 };
 
 const STATUS_STYLES: Record<PersonaStatus, string> = {
-  draft: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
-  approved: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  active: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+  draft: "bg-surface text-ink-muted",
+  approved: "bg-warn-soft text-warn",
+  active: "bg-success-soft text-success",
 };
 
 export default async function PersonasPage({
@@ -118,33 +118,33 @@ export default async function PersonasPage({
     <div className="mx-auto max-w-2xl px-6 py-12">
       <Link
         href={`/courses/${courseId}`}
-        className="text-sm text-zinc-500 hover:underline"
+        className="text-sm text-ink-muted hover:underline"
       >
         ← {course.title}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         ペルソナ設定(F03/F04)
       </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         AI擬似メンバーのプロフィール・立場・行動ルールを設定し(F03)、承認のうえ授業で使うペルソナを選ぶ(F04)。
         段階1では教師設定型のみ作成できる。
       </p>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         この授業で使用中のペルソナ: <span className="font-medium">{activeCount}体</span>
       </p>
 
-      <div className="mt-8 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-        <h2 className="mb-4 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <div className="mt-8 rounded-lg border border-line p-5">
+        <h2 className="mb-4 text-sm font-medium text-ink">
           新しいペルソナを作成
         </h2>
         <PersonaForm action={boundCreateAction} submitLabel="作成する" />
       </div>
 
-      <div className="mt-6 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <div className="mt-6 rounded-lg border border-line p-5">
+        <h2 className="text-sm font-medium text-ink">
           学習進化型ペルソナ(F10)
         </h2>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-ink-muted">
           同意済みの学習者の発言・成果・振り返りから、論点・誤概念・有効な問いを抽出し、
           3〜5個の役割プロファイルを下書き(下書き状態)として提案する。特定の学習者の発言だと
           推測されないよう、同意済みの学習者が一定数(3人)集まるまでは生成できない。
@@ -153,7 +153,7 @@ export default async function PersonasPage({
         <form action={boundGenerateEvolvedAction} className="mt-3">
           <SubmitButton
             pendingText="生成中…"
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
           >
             学習進化型ペルソナを生成する
           </SubmitButton>
@@ -161,12 +161,12 @@ export default async function PersonasPage({
 
         {corpusEntries && corpusEntries.length > 0 && (
           <details className="mt-4">
-            <summary className="cursor-pointer text-xs text-zinc-500">
+            <summary className="cursor-pointer text-xs text-ink-muted">
               抽出された論点・誤概念・有効な問い({corpusEntries.length}件)
             </summary>
-            <ul className="mt-2 space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
+            <ul className="mt-2 space-y-2 text-xs text-ink-muted">
               {(corpusEntries as CorpusEntryRow[]).map((entry) => (
-                <li key={entry.id} className="rounded-md border border-zinc-200 p-2 dark:border-zinc-800">
+                <li key={entry.id} className="rounded-md border border-line p-2">
                   <p>論点: {entry.topic}</p>
                   {entry.misconception && <p>誤概念: {entry.misconception}</p>}
                   {entry.effective_question && <p>有効な問い: {entry.effective_question}</p>}
@@ -196,7 +196,7 @@ export default async function PersonasPage({
           return (
             <li
               key={persona.id}
-              className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              className="rounded-md border border-line px-4 py-3 text-sm"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <Link
@@ -214,17 +214,17 @@ export default async function PersonasPage({
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs text-zinc-400 dark:bg-zinc-800"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface text-xs text-ink-faint"
                     >
                       ?
                     </span>
                   )}
                   <span className="min-w-0">
-                    <span className="font-medium text-zinc-950 dark:text-zinc-50">{persona.name}</span>
+                    <span className="font-medium text-ink">{persona.name}</span>
                     {persona.profile?.role && (
-                      <span className="ml-2 text-zinc-500">({persona.profile.role})</span>
+                      <span className="ml-2 text-ink-muted">({persona.profile.role})</span>
                     )}
-                    <span className="ml-2 text-xs text-zinc-400">
+                    <span className="ml-2 text-xs text-ink-faint">
                       [{TIER_LABELS[persona.tier] ?? persona.tier}]
                     </span>
                   </span>
@@ -239,7 +239,7 @@ export default async function PersonasPage({
                     <form action={boundApproveAction}>
                       <button
                         type="submit"
-                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                       >
                         承認する
                       </button>
@@ -249,7 +249,7 @@ export default async function PersonasPage({
                     <form action={boundActivateAction}>
                       <button
                         type="submit"
-                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                       >
                         授業で使う
                       </button>
@@ -259,7 +259,7 @@ export default async function PersonasPage({
                     <form action={boundDeactivateAction}>
                       <button
                         type="submit"
-                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                       >
                         使用をやめる
                       </button>
@@ -269,7 +269,7 @@ export default async function PersonasPage({
                   <form action={boundDeleteAction}>
                     <button
                       type="submit"
-                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                     >
                       削除
                     </button>
@@ -277,16 +277,16 @@ export default async function PersonasPage({
                 </div>
               </div>
               {persona.origin_note && (
-                <p className="mt-2 text-xs text-zinc-400">生成理由: {persona.origin_note}</p>
+                <p className="mt-2 text-xs text-ink-faint">生成理由: {persona.origin_note}</p>
               )}
               <div className="mt-2 flex items-center gap-2">
                 {persona.shared_at ? (
                   <>
-                    <span className="text-xs text-sky-600 dark:text-sky-400">共有ライブラリに公開中(F21)</span>
+                    <span className="text-xs text-accent">共有ライブラリに公開中(F21)</span>
                     <form action={boundUnshareAction}>
                       <button
                         type="submit"
-                        className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface"
                       >
                         共有を取り消す
                       </button>
@@ -297,7 +297,7 @@ export default async function PersonasPage({
                     <form action={boundShareAction}>
                       <button
                         type="submit"
-                        className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface"
                       >
                         共有ライブラリに公開する(F21)
                       </button>
@@ -305,15 +305,15 @@ export default async function PersonasPage({
                   )
                 )}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-900">
-                <span className="text-xs text-zinc-400">
+              <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-line pt-2">
+                <span className="text-xs text-ink-faint">
                   アバター(F25): {AVATAR_STATUS_LABELS[persona.avatar_status]}
                   {avatar && ` — ${avatar.label}`}
                 </span>
                 <form action={boundRecommendAvatarAction}>
                   <SubmitButton
                     pendingText="推薦中…"
-                    className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
+                    className="rounded-md border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface disabled:opacity-50"
                   >
                     {persona.avatar_id ? "AIに再推薦させる" : "AIに推薦させる"}
                   </SubmitButton>
@@ -326,7 +326,7 @@ export default async function PersonasPage({
                     id={`avatar-select-${persona.id}`}
                     name="avatarId"
                     defaultValue={persona.avatar_id ?? ""}
-                    className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                    className="rounded-md border border-line px-2 py-0.5 text-xs bg-surface-raised"
                   >
                     <option value="" disabled>
                       手動で選ぶ
@@ -339,20 +339,20 @@ export default async function PersonasPage({
                   </select>
                   <button
                     type="submit"
-                    className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="rounded-md border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface"
                   >
                     変更する
                   </button>
                 </form>
               </div>
               {persona.avatar_status === "failed" && persona.avatar_error && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{persona.avatar_error}</p>
+                <p className="mt-1 text-xs text-danger">{persona.avatar_error}</p>
               )}
             </li>
           );
         })}
         {rows.length === 0 && (
-          <li className="text-sm text-zinc-500">まだペルソナがありません。上のフォームから作成してください。</li>
+          <li className="text-sm text-ink-muted">まだペルソナがありません。上のフォームから作成してください。</li>
         )}
       </ul>
     </div>

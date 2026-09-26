@@ -1,26 +1,110 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * 配色は姉妹アプリ「Synclie - Share」(KOBAE-LABの色)に合わせてある。
+ * 研究室のロゴ(ヘルメットの黄・深紅のリング)を主軸に、黒基調のダークテーマを既定にする
+ * (教室のプロジェクタでは明るい地だと周りが見えにくくなるため)。
+ * 値は synclie-share の src/app/globals.css と同じにしてあるので、
+ * 配色を変える時は両方のアプリで揃えて直すこと。
+ */
+@theme {
+  --color-canvas: #0f0f11; /* ページの地。ロゴ内側の黒 */
+  --color-surface: #1b1b1f; /* カード */
+  --color-surface-raised: #26262b; /* 入力欄など一段上げる面 */
+  --color-line: #34343a;
+  --color-line-strong: #56565f;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+  --color-ink: #f5f2ef; /* 本文 */
+  --color-ink-muted: #c3bdb8;
+  --color-ink-faint: #948e88;
+
+  --color-accent: #c07772; /* 文字・枠線・選択中の輪郭 */
+  --color-accent-fill: #a81c1c; /* 塗りボタンの地。ロゴの深紅そのもの */
+  --color-accent-fill-hover: #c42525;
+  --color-accent-dark: #7c1414;
+  --color-accent-soft: #2a1315; /* 淡い下地 */
+
+  --color-danger: #f5786c;
+  --color-danger-soft: #2c1512;
+  --color-success: #5fcf92;
+  --color-success-soft: #12271c;
+  --color-warn: #f5c518; /* ヘルメットの黄 */
+  --color-warn-soft: #2a2310;
+  --color-highlight: #f5c518;
+
+  --font-sans:
+    "Hiragino Kaku Gothic ProN", "Hiragino Sans", "ヒラギノ角ゴ ProN W3",
+    "Noto Sans JP", "Yu Gothic UI", Meiryo, system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* 操作したことが必ず分かるように、フォーカスリングはブランドカラーで強調する(F18)。 */
+:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* F25: ペルソナのアバターに「生きている」感じ(社会的存在感)を持たせる、ごく控えめな
+   アイドルアニメーション。VR等は使わず、静止画+CSSアニメーションだけで確保する方針。 */
+@keyframes avatar-idle {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.02);
+  }
+}
+.avatar-idle {
+  animation: avatar-idle 3.6s ease-in-out infinite;
+}
+
+/* F05: メッセージ送信中、擬似メンバーが「考えている」ことを示す点滅ドット。 */
+@keyframes thinking-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+.thinking-dot {
+  animation: thinking-dot 1.2s ease-in-out infinite;
+}
+.thinking-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.thinking-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-idle,
+  .thinking-dot {
+    animation: none;
+  }
+}
+
+/* F25: 対話の相手に向かって話している臨場感を出す「舞台」の背景。
+   教室の黒板前を薄く連想させるグラデーションのみで、画像は使わない
+   (都度の画像生成コストを避ける方針はF25のまま)。 */
+.persona-stage {
+  background:
+    radial-gradient(ellipse 55% 60% at 50% 15%, rgba(245, 197, 24, 0.1), transparent 70%),
+    linear-gradient(to bottom, #1c1c20 0%, #131316 55%, #0f0f11 100%);
 }

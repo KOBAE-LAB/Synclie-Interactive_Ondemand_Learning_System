@@ -16,7 +16,7 @@ export interface PersonaFormValues {
 }
 
 const inputClassName =
-  "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised";
 
 export function PersonaForm({
   action,
@@ -32,7 +32,7 @@ export function PersonaForm({
   return (
     <form action={action} className="space-y-6">
       <fieldset className="space-y-3">
-        <legend className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <legend className="text-sm font-medium text-ink">
           プロフィール
         </legend>
         <label htmlFor="persona-name" className="sr-only">
@@ -90,7 +90,7 @@ export function PersonaForm({
       </fieldset>
 
       <fieldset className="space-y-3">
-        <legend className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <legend className="text-sm font-medium text-ink">
           立場と目標
         </legend>
         <label htmlFor="persona-stance-position" className="sr-only">
@@ -117,10 +117,10 @@ export function PersonaForm({
       </fieldset>
 
       <fieldset className="space-y-3">
-        <legend className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <legend className="text-sm font-medium text-ink">
           行動ルール
         </legend>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-ink-muted">
           AI明示・資料限定・同調禁止・問い返しなどの共通ガードレールは全ペルソナに常に適用される
           (src/lib/ai/persona.ts の COMMON_GUARDRAILS)。ここではこのペルソナ固有の調整のみ設定する。
         </p>
@@ -165,7 +165,7 @@ export function PersonaForm({
 
       <button
         type="submit"
-        className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+        className="rounded-md bg-accent-fill px-4 py-2 text-sm font-medium text-white hover:bg-accent-fill-hover"
       >
         {submitLabel}
       </button>

@@ -29,10 +29,10 @@ const RAG_STATUS_LABELS: Record<string, string> = {
 };
 
 const RAG_STATUS_STYLES: Record<string, string> = {
-  pending: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
-  processing: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  done: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-  failed: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  pending: "bg-surface text-ink-muted",
+  processing: "bg-warn-soft text-warn",
+  done: "bg-success-soft text-success",
+  failed: "bg-danger-soft text-danger",
 };
 
 export default async function CourseDetailPage({
@@ -80,58 +80,58 @@ export default async function CourseDetailPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">{course.title}</h1>
-      {course.subject && <p className="mt-1 text-sm text-zinc-500">{course.subject}</p>}
+      <h1 className="text-2xl font-semibold text-ink">{course.title}</h1>
+      {course.subject && <p className="mt-1 text-sm text-ink-muted">{course.subject}</p>}
 
       <Link
         href={`/courses/${courseId}/dashboard`}
-        className="mt-4 inline-block text-sm text-zinc-500 hover:underline"
+        className="mt-4 inline-block text-sm text-ink-muted hover:underline"
       >
         教師ダッシュボード(F14)→
       </Link>
       <br />
       <Link
         href={`/courses/${courseId}/personas`}
-        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+        className="mt-1 inline-block text-sm text-ink-muted hover:underline"
       >
         ペルソナ設定(F03/F04)→
       </Link>
       <br />
       <Link
         href={`/courses/${courseId}/criteria`}
-        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+        className="mt-1 inline-block text-sm text-ink-muted hover:underline"
       >
         評価の観点(F07)→
       </Link>
       <br />
       <Link
         href={`/courses/${courseId}/submissions`}
-        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+        className="mt-1 inline-block text-sm text-ink-muted hover:underline"
       >
         提出物とフィードバック(F06/F07)→
       </Link>
       <br />
       <Link
         href={`/courses/${courseId}/students`}
-        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+        className="mt-1 inline-block text-sm text-ink-muted hover:underline"
       >
         学習者プロファイル(F09)→
       </Link>
       <br />
       <Link
         href={`/courses/${courseId}/conformity`}
-        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+        className="mt-1 inline-block text-sm text-ink-muted hover:underline"
       >
         ペルソナ設計と同調の計測(F20)→
       </Link>
       <br />
       <Link
         href={`/courses/${courseId}/audit`}
-        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+        className="mt-1 inline-block text-sm text-ink-muted hover:underline"
       >
         擬似メンバーの発言の監査と修正(F15)→
       </Link>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         学習者ビュー(F05): 生徒アカウントでログインし
         <Link href={`/learn/${courseId}`} className="mx-1 hover:underline">
           /learn/{courseId}
@@ -141,9 +141,9 @@ export default async function CourseDetailPage({
 
       <form
         action={boundUploadAction}
-        className="mt-8 space-y-3 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800"
+        className="mt-8 space-y-3 rounded-lg border border-line p-5"
       >
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">資料を追加</h2>
+        <h2 className="text-sm font-medium text-ink">資料を追加</h2>
 
         <label htmlFor="material-kind" className="sr-only">
           資料の種類
@@ -153,7 +153,7 @@ export default async function CourseDetailPage({
           name="kind"
           required
           defaultValue=""
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
         >
           <option value="" disabled>
             種類を選択
@@ -173,7 +173,7 @@ export default async function CourseDetailPage({
           name="title"
           placeholder="資料のタイトル"
           required
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
         />
 
         <label htmlFor="material-url" className="sr-only">
@@ -184,7 +184,7 @@ export default async function CourseDetailPage({
           name="url"
           placeholder="URL(種類が「URL」の場合のみ)"
           type="url"
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
         />
 
         <label htmlFor="material-file" className="sr-only">
@@ -194,29 +194,29 @@ export default async function CourseDetailPage({
           id="material-file"
           name="file"
           type="file"
-          className="w-full text-sm text-zinc-700 dark:text-zinc-300"
+          className="w-full text-sm text-ink"
         />
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-ink-muted">
           「URL」を選んだ場合はURL欄のみ、それ以外はファイルを選択してください。
         </p>
 
         <button
           type="submit"
-          className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          className="rounded-md bg-accent-fill px-4 py-2 text-sm font-medium text-white hover:bg-accent-fill-hover"
         >
           追加する
         </button>
       </form>
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <h2 className="text-sm font-medium text-ink">
           資料と知識ベース(RAG)
         </h2>
         {pendingCount > 0 && (
           <form action={boundGenerateAllAction}>
             <SubmitButton
               pendingText="生成中…"
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
+              className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
             >
               未処理の資料をまとめて生成({pendingCount}件)
             </SubmitButton>
@@ -233,17 +233,17 @@ export default async function CourseDetailPage({
           const statusLabel = RAG_STATUS_LABELS[material.rag_status] ?? material.rag_status;
           const statusStyle =
             RAG_STATUS_STYLES[material.rag_status] ??
-            "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
+            "bg-surface text-ink-muted";
 
           return (
             <li
               key={material.id}
-              className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              className="rounded-md border border-line px-4 py-3 text-sm"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <span className="font-medium text-zinc-950 dark:text-zinc-50">{material.title}</span>
-                  <span className="ml-2 text-zinc-500">
+                  <span className="font-medium text-ink">{material.title}</span>
+                  <span className="ml-2 text-ink-muted">
                     [{KIND_LABELS[material.kind] ?? material.kind}]
                   </span>
                 </div>
@@ -255,7 +255,7 @@ export default async function CourseDetailPage({
                   <form action={boundGenerateOneAction}>
                     <SubmitButton
                       pendingText="生成中…"
-                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
+                      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
                     >
                       {material.rag_status === "done" ? "再生成" : "生成する"}
                     </SubmitButton>
@@ -263,19 +263,19 @@ export default async function CourseDetailPage({
                 </div>
               </div>
               {material.rag_status === "failed" && material.rag_error && (
-                <p className="mt-2 text-xs text-red-600 dark:text-red-400">{material.rag_error}</p>
+                <p className="mt-2 text-xs text-danger">{material.rag_error}</p>
               )}
               {material.kind === "syllabus" && (
                 <div className="mt-2 flex items-center gap-2">
                   {material.shared_at ? (
                     <>
-                      <span className="text-xs text-sky-600 dark:text-sky-400">
+                      <span className="text-xs text-accent">
                         共有ライブラリに公開中(F21)
                       </span>
                       <form action={boundUnshareAction}>
                         <button
                           type="submit"
-                          className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="rounded-md border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface"
                         >
                           共有を取り消す
                         </button>
@@ -285,7 +285,7 @@ export default async function CourseDetailPage({
                     <form action={boundShareAction}>
                       <button
                         type="submit"
-                        className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface"
                       >
                         共有ライブラリに公開する(F21)
                       </button>
@@ -297,7 +297,7 @@ export default async function CourseDetailPage({
           );
         })}
         {(!materials || materials.length === 0) && (
-          <li className="text-sm text-zinc-500">まだ資料がありません。</li>
+          <li className="text-sm text-ink-muted">まだ資料がありません。</li>
         )}
       </ul>
     </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 import { auth } from "@/auth";
@@ -10,6 +11,13 @@ import { logoutAction } from "./logout-action";
 export const metadata: Metadata = {
   title: "Synclie",
   description: "オンデマンド学習をインタラクティブに、独習を個別最適に。",
+};
+
+export const viewport = {
+  // ブラウザのUI(iOSのステータスバー等)もロゴの深紅に合わせる(Synclie - Shareと同じ)。
+  themeColor: "#a81c1c",
+  width: "device-width",
+  initialScale: 1,
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -36,22 +44,23 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="ja" className="h-full antialiased">
       <body className="min-h-full flex flex-col font-sans">
         {user && (
-          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-4 py-2 dark:border-zinc-800">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
             <Link
               href={ROLE_HOME_HREF[user.role ?? ""] ?? "/"}
-              className="text-sm font-semibold text-zinc-950 dark:text-zinc-50"
+              className="flex items-center gap-2 text-sm font-semibold text-ink"
             >
+              <Image src="/logo.png" alt="" width={28} height={28} priority className="rounded-full" />
               Synclie
             </Link>
             <div className="flex flex-wrap items-center gap-3">
-              <span className="max-w-[12rem] truncate text-xs text-zinc-500">
+              <span className="max-w-[12rem] truncate text-xs text-ink-muted">
                 {user.name ?? user.email ?? ""}
                 {user.role && ROLE_LABELS[user.role] ? `(${ROLE_LABELS[user.role]})` : ""}
               </span>
               <form action={logoutAction}>
                 <button
                   type="submit"
-                  className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-surface"
                 >
                   ログアウト
                 </button>

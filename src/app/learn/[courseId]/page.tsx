@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { requireConsent } from "@/lib/consent";
 import { SubmitButton } from "@/components/submit-button";
+import { ThinkingIndicator } from "@/components/thinking-indicator";
 import {
   sendMessageAction,
   submitOutcomeAction,
@@ -142,35 +143,6 @@ export default async function LearnCourseSessionPage({
       .order("created_at", { ascending: true });
     turns = (turnRows ?? []) as DialogueTurnRow[];
 
-    const personaIds = [...new Set(turns.map((t) => t.persona_id).filter((id): id is string => !!id))];
-    if (personaIds.length > 0) {
-      const { data: personas } = await admin
-        .from("personas")
-        .select("id, name, avatar_id")
-        .in("id", personaIds);
-      const avatarIds = [
-        ...new Set((personas ?? []).map((p) => p.avatar_id).filter((id): id is string => !!id)),
-      ];
-      const avatarPathById = new Map<string, string>();
-      if (avatarIds.length > 0) {
-        // F25: 発言に添えるアバター画像。ペルソナ設定画面(F04)で推薦・確定済みのものだけ表示する。
-        const { data: avatarOptions } = await admin
-          .from("avatar_options")
-          .select("id, file_path")
-          .in("id", avatarIds);
-        for (const option of avatarOptions ?? []) {
-          avatarPathById.set(option.id, option.file_path);
-        }
-      }
-      for (const persona of personas ?? []) {
-        personaNames.set(persona.id, persona.name);
-        if (persona.avatar_id) {
-          const filePath = avatarPathById.get(persona.avatar_id);
-          if (filePath) personaAvatarPaths.set(persona.id, filePath);
-        }
-      }
-    }
-
     // F12: まだ送信していない(確認・修正待ちの)手書きアップロードを表示する。
     const { data: uploadRows } = await admin
       .from("handwriting_uploads")
@@ -190,11 +162,48 @@ export default async function LearnCourseSessionPage({
     pendingAudioUploads = (audioUploadRows ?? []) as AudioUploadRow[];
   }
 
-  const { count: activePersonaCount } = await admin
+  // F25: 「使用中」の擬似メンバーを、対話の相手として画面上部に大きめのアバターで
+  // 常に見せる(過去の発言に付く小さなアイコンだけでは「誰と話しているか」が弱いという
+  // フィードバックを受けて追加)。発言ログ中のペルソナ(既にactiveでなくなった場合を含む)も
+  // 名前・アバターの解決に使うため、両方のIDをまとめて1回で引く。
+  const { data: activePersonaRows } = await admin
     .from("personas")
-    .select("id", { count: "exact", head: true })
+    .select("id, name, avatar_id")
     .eq("course_id", courseId)
     .eq("status", "active");
+  const activePersonas = activePersonaRows ?? [];
+  const activePersonaCount = activePersonas.length;
+
+  const turnPersonaIds = [...new Set(turns.map((t) => t.persona_id).filter((id): id is string => !!id))];
+  const { data: turnPersonaRows } =
+    turnPersonaIds.length > 0
+      ? await admin.from("personas").select("id, name, avatar_id").in("id", turnPersonaIds)
+      : { data: [] };
+
+  const allKnownPersonas = [...activePersonas, ...(turnPersonaRows ?? [])];
+  const avatarIds = [...new Set(allKnownPersonas.map((p) => p.avatar_id).filter((id): id is string => !!id))];
+  const avatarPathById = new Map<string, string>();
+  if (avatarIds.length > 0) {
+    const { data: avatarOptions } = await admin
+      .from("avatar_options")
+      .select("id, file_path")
+      .in("id", avatarIds);
+    for (const option of avatarOptions ?? []) {
+      avatarPathById.set(option.id, option.file_path);
+    }
+  }
+  for (const persona of allKnownPersonas) {
+    personaNames.set(persona.id, persona.name);
+    if (persona.avatar_id) {
+      const filePath = avatarPathById.get(persona.avatar_id);
+      if (filePath) personaAvatarPaths.set(persona.id, filePath);
+    }
+  }
+
+  // 社会的存在感の演出用: 直近に発言した擬似メンバーを「今まさに対話している相手」として
+  // 上部のアバター行で目立たせる(枠の色を変えるだけ。追加のAI呼び出しやJSは使わない)。
+  const lastPersonaTurn = [...turns].reverse().find((t) => t.speaker_type === "persona");
+  const lastPersonaSpeakerId = lastPersonaTurn?.persona_id ?? null;
 
   // F11: 教師が採用した個別最適化の提案のうち、探究テーマの提案だけは学習者にも見せる
   // (促し方・難度の調整は対話生成側にだけ反映し、学習者には裏側の調整として見せない)。
@@ -264,125 +273,190 @@ export default async function LearnCourseSessionPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">{course.title}</h1>
-      {course.subject && <p className="mt-1 text-sm text-zinc-500">{course.subject}</p>}
+      <h1 className="text-2xl font-semibold text-ink">{course.title}</h1>
+      {course.subject && <p className="mt-1 text-sm text-ink-muted">{course.subject}</p>}
       {course.mode === "solo_study" && (
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-ink-muted">
           独習モード(F19): まだ分かっていない擬似メンバーに、自分の言葉で説明してみよう。
         </p>
       )}
       <Link
         href={`/learn/${courseId}/portfolio`}
-        className="mt-1 inline-block text-sm text-zinc-500 hover:underline"
+        className="mt-1 inline-block text-sm text-ink-muted hover:underline"
       >
         ポートフォリオを見る(F08)→
       </Link>
 
       {personalization && (
-        <p className="mt-4 rounded-md border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200">
+        <p className="mt-4 rounded-md border border-accent bg-accent-soft px-4 py-3 text-sm text-accent">
           おすすめの探究テーマ(F11): {personalization.inquiry_theme_suggestion}
         </p>
       )}
 
       {(!activePersonaCount || activePersonaCount === 0) && (
-        <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <p className="mt-4 rounded-md border border-warn bg-warn-soft px-4 py-3 text-sm text-warn">
           この授業にはまだ「使用中」の擬似メンバーがいません。教師がペルソナ設定画面(F04)で
           承認・有効化すると、擬似メンバーと議論できるようになります。発言は保存されます。
         </p>
       )}
 
-      <div className="mt-6 space-y-3">
-        {turns.map((turn) => (
-          <div key={turn.id} className={turn.speaker_type === "student" ? "text-right" : "text-left"}>
-            <div
-              className={`inline-block max-w-[85%] rounded-lg px-4 py-2 text-left text-sm ${
-                turn.speaker_type === "student"
-                  ? "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950"
-                  : "bg-zinc-100 text-zinc-950 dark:bg-zinc-800 dark:text-zinc-50"
-              }`}
-            >
-              {turn.speaker_type === "persona" && (
-                <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  {turn.persona_id && personaAvatarPaths.get(turn.persona_id) && (
+      {activePersonas.length > 0 && (
+        <div className="persona-stage relative mt-6 overflow-hidden rounded-lg border border-line">
+          <div className="flex flex-wrap items-end justify-center gap-x-8 gap-y-4 px-6 pb-6 pt-10">
+            {activePersonas.map((persona) => {
+              const avatarPath = personaAvatarPaths.get(persona.id);
+              // 直近に発言した相手を大きく中心に見せ、「その相手に向かって話している」
+              // 臨場感を出す。誰も発言していない開始直後は、先頭の1人を仮の相手として大きく見せる。
+              const isSpeaker =
+                persona.id === lastPersonaSpeakerId ||
+                (!lastPersonaSpeakerId && persona.id === activePersonas[0].id);
+              const sizeClass = isSpeaker ? "h-32 w-32" : "h-14 w-14 opacity-60";
+              const glowClass = isSpeaker ? "shadow-[0_0_50px_-8px_rgba(245,197,24,0.4)]" : "";
+              return (
+                <div key={persona.id} className="flex flex-col items-center gap-2">
+                  {avatarPath ? (
                     <img
-                      src={personaAvatarPaths.get(turn.persona_id)}
+                      src={avatarPath}
                       alt=""
-                      width={20}
-                      height={20}
-                      className="h-5 w-5 rounded-full"
+                      width={128}
+                      height={128}
+                      className={`avatar-idle rounded-full ${sizeClass} ${glowClass}`}
                     />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className={`avatar-idle flex items-center justify-center rounded-full bg-surface-raised text-ink-faint ${sizeClass} ${glowClass}`}
+                    >
+                      ?
+                    </span>
                   )}
-                  {turn.persona_id ? (personaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー"}(AI)
-                </p>
-              )}
-              {turn.source_kind === "handwriting" && (
-                <p className="mb-1 text-xs text-zinc-400">[手書きから変換]</p>
-              )}
-              {turn.source_kind === "audio" && (
-                <p className="mb-1 text-xs text-zinc-400">[音声から変換]</p>
-              )}
-              <p className="whitespace-pre-wrap">{turn.content}</p>
-            </div>
+                  <span className={`font-medium ${isSpeaker ? "text-sm text-ink" : "text-xs text-ink-muted"}`}>
+                    {persona.name}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        ))}
+          {lastPersonaTurn ? (
+            <div className="border-t border-line bg-surface px-5 py-4">
+              <p className="text-xs font-semibold text-accent">
+                {personaNames.get(lastPersonaTurn.persona_id ?? "") ?? "擬似メンバー"}
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{lastPersonaTurn.content}</p>
+            </div>
+          ) : (
+            <div className="border-t border-line bg-surface px-5 py-4 text-center text-sm text-ink-muted">
+              下から話しかけてみよう。
+            </div>
+          )}
+        </div>
+      )}
+
+      <h2 className="mt-6 text-xs font-medium text-ink-faint">これまでのやり取り</h2>
+      <div className="mt-2 space-y-4">
+        {turns.map((turn) => {
+          if (turn.speaker_type === "student") {
+            return (
+              <div key={turn.id} className="text-right">
+                <div className="inline-block max-w-[75%] rounded-lg bg-accent-fill px-4 py-2 text-left text-sm text-white">
+                  {turn.source_kind === "handwriting" && (
+                    <p className="mb-1 text-xs text-ink-faint">[手書きから変換]</p>
+                  )}
+                  {turn.source_kind === "audio" && <p className="mb-1 text-xs text-ink-faint">[音声から変換]</p>}
+                  <p className="whitespace-pre-wrap">{turn.content}</p>
+                </div>
+              </div>
+            );
+          }
+
+          const avatarPath = turn.persona_id ? personaAvatarPaths.get(turn.persona_id) : undefined;
+          const personaName = turn.persona_id ? (personaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー";
+          return (
+            <div key={turn.id} className="flex items-end gap-2">
+              {avatarPath ? (
+                <img src={avatarPath} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-full" />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-xs text-ink-faint"
+                >
+                  ?
+                </span>
+              )}
+              <div className="max-w-[75%]">
+                <p className="mb-1 text-xs font-medium text-ink-muted">{personaName}(AI)</p>
+                <div className="inline-block rounded-lg bg-surface px-4 py-2 text-left text-sm text-ink">
+                  {turn.source_kind === "handwriting" && (
+                    <p className="mb-1 text-xs text-ink-faint">[手書きから変換]</p>
+                  )}
+                  {turn.source_kind === "audio" && <p className="mb-1 text-xs text-ink-faint">[音声から変換]</p>}
+                  <p className="whitespace-pre-wrap">{turn.content}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
         {turns.length === 0 && (
-          <p className="text-sm text-zinc-500">まだ発言がありません。下から発言してみましょう。</p>
+          <p className="text-sm text-ink-muted">まだ発言がありません。下から発言してみましょう。</p>
         )}
       </div>
 
-      <form action={boundSendAction} className="mt-6 flex gap-2">
-        <label htmlFor="chat-message" className="sr-only">
-          発言
-        </label>
-        <textarea
-          id="chat-message"
-          name="message"
-          required
-          rows={2}
-          placeholder="発言を入力"
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        />
-        <SubmitButton
-          pendingText="送信中…"
-          className="shrink-0 self-end rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
-        >
-          送信
-        </SubmitButton>
+      <form action={boundSendAction} className="mt-6">
+        <div className="flex gap-2">
+          <label htmlFor="chat-message" className="sr-only">
+            発言
+          </label>
+          <textarea
+            id="chat-message"
+            name="message"
+            required
+            rows={2}
+            placeholder="発言を入力"
+            className="flex-1 rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
+          />
+          <SubmitButton
+            pendingText="送信中…"
+            className="shrink-0 self-end rounded-md bg-accent-fill px-4 py-2 text-sm font-medium text-white hover:bg-accent-fill-hover disabled:opacity-50"
+          >
+            送信
+          </SubmitButton>
+        </div>
+        <ThinkingIndicator label="擬似メンバーが考えています" />
       </form>
 
       <form action={boundUploadHandwritingAction} className="mt-3 flex flex-wrap items-center gap-2">
-        <label className="text-xs text-zinc-500">
+        <label className="text-xs text-ink-muted">
           手書きで発言する(F12):
           <input
             name="image"
             type="file"
             accept="image/*"
             required
-            className="ml-2 max-w-[10rem] text-xs text-zinc-700 dark:text-zinc-300"
+            className="ml-2 max-w-[10rem] text-xs text-ink"
           />
         </label>
         <SubmitButton
           pendingText="読み取り中…"
-          className="shrink-0 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
         >
           画像を読み取る
         </SubmitButton>
       </form>
 
       <form action={boundUploadAudioAction} className="mt-3 flex flex-wrap items-center gap-2">
-        <label className="text-xs text-zinc-500">
+        <label className="text-xs text-ink-muted">
           音声で発言する(F13):
           <input
             name="audio"
             type="file"
             accept="audio/*"
             required
-            className="ml-2 max-w-[10rem] text-xs text-zinc-700 dark:text-zinc-300"
+            className="ml-2 max-w-[10rem] text-xs text-ink"
           />
         </label>
         <SubmitButton
           pendingText="文字起こし中…"
-          className="shrink-0 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
         >
           音声を文字起こしする
         </SubmitButton>
@@ -396,20 +470,20 @@ export default async function LearnCourseSessionPage({
             return (
               <li
                 key={upload.id}
-                className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+                className="rounded-md border border-line px-4 py-3 text-sm"
               >
                 {upload.status === "transcribing" && (
-                  <p className="text-xs text-zinc-500">音声を文字起こししています…</p>
+                  <p className="text-xs text-ink-muted">音声を文字起こししています…</p>
                 )}
                 {upload.status === "failed" && (
                   <>
-                    <p className="text-xs text-red-600 dark:text-red-400">
+                    <p className="text-xs text-danger">
                       文字起こしに失敗しました: {upload.error}
                     </p>
                     <form action={boundDiscardAction} className="mt-2">
                       <button
                         type="submit"
-                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                       >
                         取り消す
                       </button>
@@ -419,7 +493,7 @@ export default async function LearnCourseSessionPage({
                 {upload.status === "ready" && (
                   <form action={boundConfirmAction} className="space-y-2">
                     <label className="block space-y-2">
-                      <span className="block text-xs text-zinc-500">
+                      <span className="block text-xs text-ink-muted">
                         文字起こし結果です。内容を確認・修正してから送信してください。
                       </span>
                       <textarea
@@ -427,24 +501,25 @@ export default async function LearnCourseSessionPage({
                         required
                         rows={3}
                         defaultValue={upload.transcribed_text ?? ""}
-                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                        className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
                       />
                     </label>
                     <div className="flex gap-2">
                       <SubmitButton
                         pendingText="送信中…"
-                        className="rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                        className="rounded-md bg-accent-fill px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-fill-hover disabled:opacity-50"
                       >
                         この内容で送信
                       </SubmitButton>
                     </div>
+                    <ThinkingIndicator label="擬似メンバーが考えています" />
                   </form>
                 )}
                 {upload.status === "ready" && (
                   <form action={boundDiscardAction} className="mt-2">
                     <button
                       type="submit"
-                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                     >
                       取り消す
                     </button>
@@ -464,20 +539,20 @@ export default async function LearnCourseSessionPage({
             return (
               <li
                 key={upload.id}
-                className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+                className="rounded-md border border-line px-4 py-3 text-sm"
               >
                 {upload.status === "recognizing" && (
-                  <p className="text-xs text-zinc-500">画像を読み取っています…</p>
+                  <p className="text-xs text-ink-muted">画像を読み取っています…</p>
                 )}
                 {upload.status === "failed" && (
                   <>
-                    <p className="text-xs text-red-600 dark:text-red-400">
+                    <p className="text-xs text-danger">
                       読み取りに失敗しました: {upload.error}
                     </p>
                     <form action={boundDiscardAction} className="mt-2">
                       <button
                         type="submit"
-                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                       >
                         取り消す
                       </button>
@@ -487,7 +562,7 @@ export default async function LearnCourseSessionPage({
                 {upload.status === "ready" && (
                   <form action={boundConfirmAction} className="space-y-2">
                     <label className="block space-y-2">
-                      <span className="block text-xs text-zinc-500">
+                      <span className="block text-xs text-ink-muted">
                         読み取り結果です。内容を確認・修正してから送信してください。
                       </span>
                       <textarea
@@ -495,24 +570,25 @@ export default async function LearnCourseSessionPage({
                         required
                         rows={3}
                         defaultValue={upload.recognized_text ?? ""}
-                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                        className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
                       />
                     </label>
                     <div className="flex gap-2">
                       <SubmitButton
                         pendingText="送信中…"
-                        className="rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                        className="rounded-md bg-accent-fill px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-fill-hover disabled:opacity-50"
                       >
                         この内容で送信
                       </SubmitButton>
                     </div>
+                    <ThinkingIndicator label="擬似メンバーが考えています" />
                   </form>
                 )}
                 {upload.status === "ready" && (
                   <form action={boundDiscardAction} className="mt-2">
                     <button
                       type="submit"
-                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                     >
                       取り消す
                     </button>
@@ -524,11 +600,11 @@ export default async function LearnCourseSessionPage({
         </ul>
       )}
 
-      <div className="mt-12 border-t border-zinc-200 pt-8 dark:border-zinc-800">
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <div className="mt-12 border-t border-line pt-8">
+        <h2 className="text-sm font-medium text-ink">
           成果を提出する(F06)
         </h2>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-ink-muted">
           擬似メンバーとの議論をふまえて、自分の考えをまとめて提出しましょう。
         </p>
 
@@ -542,11 +618,11 @@ export default async function LearnCourseSessionPage({
             required
             rows={4}
             placeholder="議論をふまえた自分の考えをまとめて書く"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
           />
           <button
             type="submit"
-            className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+            className="rounded-md bg-accent-fill px-4 py-2 text-sm font-medium text-white hover:bg-accent-fill-hover"
           >
             提出する
           </button>
@@ -577,21 +653,21 @@ export default async function LearnCourseSessionPage({
               return (
                 <li
                   key={submission.id}
-                  className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+                  className="rounded-md border border-line px-4 py-3 text-sm"
                 >
                   <p className="whitespace-pre-wrap">{submission.content}</p>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-ink-faint">
                       {new Date(submission.created_at).toLocaleString("ja-JP")}
                     </p>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-xs text-zinc-400">
+                      <span className="text-xs text-ink-faint">
                         フィードバック: {FEEDBACK_STATUS_LABELS[submission.feedback_status]}
                       </span>
                       <form action={boundGenerateFeedbackAction}>
                         <SubmitButton
                           pendingText="生成中…"
-                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
                         >
                           {submission.feedback_status === "done" ? "再生成する" : "フィードバックをもらう"}
                         </SubmitButton>
@@ -599,13 +675,13 @@ export default async function LearnCourseSessionPage({
                     </div>
                   </div>
                   <div className="mt-1 flex items-center justify-end gap-2">
-                    <span className="text-xs text-zinc-400">
+                    <span className="text-xs text-ink-faint">
                       AIジャッジ(F24): {JUDGMENT_STATUS_LABELS[submission.judgment_status]}
                     </span>
                     <form action={boundJudgeDiscussionAction}>
                       <SubmitButton
                         pendingText="ジャッジ中…"
-                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
                       >
                         {submission.judgment_status === "done" ? "再ジャッジする" : "AIジャッジを受ける"}
                       </SubmitButton>
@@ -613,48 +689,48 @@ export default async function LearnCourseSessionPage({
                   </div>
 
                   {submission.feedback_status === "failed" && submission.feedback_error && (
-                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                    <p className="mt-2 text-xs text-danger">
                       {submission.feedback_error}
                     </p>
                   )}
                   {submission.judgment_status === "failed" && submission.judgment_error && (
-                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                    <p className="mt-2 text-xs text-danger">
                       {submission.judgment_error}
                     </p>
                   )}
 
                   {judgment && (
-                    <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-                      <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    <div className="mt-4 space-y-1 border-t border-line pt-3">
+                      <p className="text-xs font-medium text-ink">
                         AIジャッジ(F24): 議論全体を通しての評価
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-ink-muted">
                         論理構成 {judgment.logic_structure}/5 ・ 根拠の質 {judgment.evidence_quality}/5 ・
                         反論への応答 {judgment.rebuttal_response}/5
                       </p>
                       <p className="mt-1">{judgment.summary_comment}</p>
-                      <p className="mt-1 text-xs text-zinc-400">
+                      <p className="mt-1 text-xs text-ink-faint">
                         この評価は最終ではありません。自己評価や教師の評価の参考にしてください。
                       </p>
                     </div>
                   )}
 
                   {feedbackItems.length > 0 && (
-                    <div className="mt-4 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                    <div className="mt-4 space-y-3 border-t border-line pt-3">
                       {feedbackItems.map((item) => (
                         <div key={item.id}>
-                          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          <p className="text-xs font-medium text-ink-muted">
                             {item.criteria_label}
                           </p>
                           <p className="mt-1">
-                            <span className="text-zinc-500">良い点: </span>
+                            <span className="text-ink-muted">良い点: </span>
                             {item.good_points}
                           </p>
                           <p className="mt-1">
-                            <span className="text-zinc-500">次に考える問い: </span>
+                            <span className="text-ink-muted">次に考える問い: </span>
                             {item.next_question}
                           </p>
-                          <p className="mt-1 text-xs text-zinc-500">
+                          <p className="mt-1 text-xs text-ink-muted">
                             参照すべき資料の箇所: {item.material_reference}
                           </p>
                         </div>
@@ -663,8 +739,8 @@ export default async function LearnCourseSessionPage({
                   )}
 
                   {submission.feedback_status === "done" && (
-                    <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-                      <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    <div className="mt-4 border-t border-line pt-3">
+                      <p className="text-xs font-medium text-ink">
                         振り返り(F08){reflection && " (記入済み・編集できます)"}
                       </p>
                       <form action={boundSaveReflectionAction} className="mt-2 space-y-2">
@@ -676,7 +752,7 @@ export default async function LearnCourseSessionPage({
                             rows={2}
                             placeholder="学んだこと"
                             defaultValue={reflection?.what_learned}
-                            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                            className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
                           />
                         </label>
                         <label className="block">
@@ -687,7 +763,7 @@ export default async function LearnCourseSessionPage({
                             rows={2}
                             placeholder="迷ったこと"
                             defaultValue={reflection?.what_confused}
-                            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                            className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
                           />
                         </label>
                         <label className="block">
@@ -698,10 +774,10 @@ export default async function LearnCourseSessionPage({
                             rows={2}
                             placeholder="次にやりたいこと"
                             defaultValue={reflection?.next_goal}
-                            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                            className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
                           />
                         </label>
-                        <label className="flex items-center gap-2 text-xs text-zinc-500">
+                        <label className="flex items-center gap-2 text-xs text-ink-muted">
                           <input
                             type="checkbox"
                             name="sharedWithTeacher"
@@ -711,7 +787,7 @@ export default async function LearnCourseSessionPage({
                         </label>
                         <button
                           type="submit"
-                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                         >
                           {reflection ? "更新する" : "振り返りを保存"}
                         </button>

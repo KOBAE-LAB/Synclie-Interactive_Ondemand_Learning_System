@@ -35,16 +35,16 @@ export default async function EditCriterionPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <Link href={`/courses/${courseId}/criteria`} className="text-sm text-zinc-500 hover:underline">
+      <Link href={`/courses/${courseId}/criteria`} className="text-sm text-ink-muted hover:underline">
         ← 評価の観点一覧
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         {criterion.label} を編集
       </h1>
 
       <form
         action={boundUpdateAction}
-        className="mt-8 space-y-3 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800"
+        className="mt-8 space-y-3 rounded-lg border border-line p-5"
       >
         <label htmlFor="criteria-label" className="sr-only">
           観点の名前
@@ -55,7 +55,7 @@ export default async function EditCriterionPage({
           placeholder="観点の名前(例: 根拠の明確さ)"
           required
           defaultValue={criterion.label}
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
         />
         <label htmlFor="criteria-description" className="sr-only">
           説明
@@ -66,11 +66,11 @@ export default async function EditCriterionPage({
           placeholder="説明(任意)"
           rows={2}
           defaultValue={criterion.description ?? ""}
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
         />
         <button
           type="submit"
-          className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          className="rounded-md bg-accent-fill px-4 py-2 text-sm font-medium text-white hover:bg-accent-fill-hover"
         >
           更新する
         </button>

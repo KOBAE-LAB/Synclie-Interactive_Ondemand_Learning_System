@@ -39,7 +39,7 @@ interface ReflectionRow {
 }
 
 const inputClassName =
-  "w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-line px-2 py-1.5 text-xs bg-surface-raised";
 
 export default async function SubmissionsReviewPage({
   params,
@@ -123,13 +123,13 @@ export default async function SubmissionsReviewPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <Link href={`/courses/${courseId}`} className="text-sm text-zinc-500 hover:underline">
+      <Link href={`/courses/${courseId}`} className="text-sm text-ink-muted hover:underline">
         ← {course.title}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         提出物とフィードバック(F07)
       </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         学習者の提出物(F06)とAIフィードバックを確認し、必要であれば文面を修正できる。
       </p>
 
@@ -141,30 +141,30 @@ export default async function SubmissionsReviewPage({
           return (
             <li
               key={submission.id}
-              className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              className="rounded-md border border-line px-4 py-3 text-sm"
             >
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-ink-muted">
                 {studentNames.get(submission.student_id) ?? "(不明な学習者)"} ・
                 {new Date(submission.created_at).toLocaleString("ja-JP")}
               </p>
               <p className="mt-2 whitespace-pre-wrap">{submission.content}</p>
 
               {submission.feedback_status === "failed" && submission.feedback_error && (
-                <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                <p className="mt-2 text-xs text-danger">
                   フィードバック生成エラー: {submission.feedback_error}
                 </p>
               )}
 
               {feedbackItems.length > 0 && (
-                <div className="mt-4 space-y-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                <div className="mt-4 space-y-4 border-t border-line pt-3">
                   {feedbackItems.map((item) => {
                     const boundUpdateAction = updateFeedbackAction.bind(null, courseId, item.id);
                     return (
                       <form key={item.id} action={boundUpdateAction} className="space-y-2">
-                        <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        <p className="text-xs font-medium text-ink">
                           {item.criteria_label}
                         </p>
-                        <label className="block text-xs text-zinc-500">
+                        <label className="block text-xs text-ink-muted">
                           良い点
                           <textarea
                             name="goodPoints"
@@ -174,7 +174,7 @@ export default async function SubmissionsReviewPage({
                             className={`mt-1 ${inputClassName}`}
                           />
                         </label>
-                        <label className="block text-xs text-zinc-500">
+                        <label className="block text-xs text-ink-muted">
                           次に考える問い
                           <textarea
                             name="nextQuestion"
@@ -184,7 +184,7 @@ export default async function SubmissionsReviewPage({
                             className={`mt-1 ${inputClassName}`}
                           />
                         </label>
-                        <label className="block text-xs text-zinc-500">
+                        <label className="block text-xs text-ink-muted">
                           参照すべき資料の箇所
                           <textarea
                             name="materialReference"
@@ -196,7 +196,7 @@ export default async function SubmissionsReviewPage({
                         </label>
                         <button
                           type="submit"
-                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                         >
                           この観点のフィードバックを保存
                         </button>
@@ -207,26 +207,26 @@ export default async function SubmissionsReviewPage({
               )}
 
               {judgment && (
-                <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 text-xs dark:border-zinc-800">
+                <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="font-medium text-zinc-700 dark:text-zinc-300">
+                    <p className="font-medium text-ink">
                       AIジャッジ(F24): 議論全体を通しての評価
                     </p>
                     <form action={sendGradeToLmsAction.bind(null, courseId, submission.id)}>
                       <SubmitButton
                         pendingText="送信中…"
-                        className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="shrink-0 rounded-md border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface disabled:opacity-50"
                       >
                         LMSに成績を送信する(F17)
                       </SubmitButton>
                     </form>
                   </div>
-                  <p className="text-zinc-500">
+                  <p className="text-ink-muted">
                     論理構成 {judgment.logic_structure}/5 ・ 根拠の質 {judgment.evidence_quality}/5 ・
                     反論への応答 {judgment.rebuttal_response}/5
                   </p>
                   <p>{judgment.summary_comment}</p>
-                  <p className="text-zinc-400">
+                  <p className="text-ink-faint">
                     この評価は最終ではありません。学習評価の参考にしてください。
                     「LMSに成績を送信する」は、この成果がLTI経由の活動に紐づく場合のみ機能します。
                   </p>
@@ -234,20 +234,20 @@ export default async function SubmissionsReviewPage({
               )}
 
               {reflection && (
-                <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 text-xs dark:border-zinc-800">
-                  <p className="font-medium text-zinc-700 dark:text-zinc-300">
+                <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs">
+                  <p className="font-medium text-ink">
                     振り返り(学習者が共有)
                   </p>
                   <p>
-                    <span className="text-zinc-500">学んだこと: </span>
+                    <span className="text-ink-muted">学んだこと: </span>
                     {reflection.what_learned}
                   </p>
                   <p>
-                    <span className="text-zinc-500">迷ったこと: </span>
+                    <span className="text-ink-muted">迷ったこと: </span>
                     {reflection.what_confused}
                   </p>
                   <p>
-                    <span className="text-zinc-500">次にやりたいこと: </span>
+                    <span className="text-ink-muted">次にやりたいこと: </span>
                     {reflection.next_goal}
                   </p>
                 </div>
@@ -256,7 +256,7 @@ export default async function SubmissionsReviewPage({
           );
         })}
         {submissions.length === 0 && (
-          <li className="text-sm text-zinc-500">まだ提出物がありません。</li>
+          <li className="text-sm text-ink-muted">まだ提出物がありません。</li>
         )}
       </ul>
     </div>

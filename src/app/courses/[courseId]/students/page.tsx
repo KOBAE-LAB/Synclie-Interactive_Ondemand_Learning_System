@@ -108,13 +108,13 @@ export default async function StudentsPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <Link href={`/courses/${courseId}`} className="text-sm text-zinc-500 hover:underline">
+      <Link href={`/courses/${courseId}`} className="text-sm text-ink-muted hover:underline">
         ← {course.title}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         学習者プロファイルと個別最適化(F09/F11)
       </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         提出物・AIフィードバック・振り返り(F06〜F08)の蓄積から、学習者ごとの得意な点・課題・
         学習履歴の要約を生成する(F09)。それをもとに、個別最適化の提案(F11: 同じ誤解を避ける
         問い、探究テーマ、促し方、難度・足場かけの調整)を生成できる。提案は採用するまで
@@ -149,18 +149,18 @@ export default async function StudentsPage({
             <li
               key={studentId}
               id={studentId}
-              className="rounded-md border border-zinc-200 px-4 py-3 text-sm scroll-mt-6 dark:border-zinc-800"
+              className="rounded-md border border-line px-4 py-3 text-sm scroll-mt-6"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="font-medium text-zinc-950 dark:text-zinc-50">
+                <span className="font-medium text-ink">
                   {studentNames.get(studentId) ?? "(不明な学習者)"}
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-xs text-zinc-400">{STATUS_LABELS[status]}</span>
+                  <span className="text-xs text-ink-faint">{STATUS_LABELS[status]}</span>
                   <form action={boundGenerateAction}>
                     <SubmitButton
                       pendingText="生成中…"
-                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
+                      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
                     >
                       {status === "done" ? "再生成する" : "プロファイルを生成する"}
                     </SubmitButton>
@@ -169,25 +169,25 @@ export default async function StudentsPage({
               </div>
 
               {status === "failed" && profile?.error && (
-                <p className="mt-2 text-xs text-red-600 dark:text-red-400">{profile.error}</p>
+                <p className="mt-2 text-xs text-danger">{profile.error}</p>
               )}
 
               {status === "done" && (
-                <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                <div className="mt-3 space-y-2 border-t border-line pt-3">
                   <p>
-                    <span className="text-xs font-medium text-zinc-500">得意な点: </span>
+                    <span className="text-xs font-medium text-ink-muted">得意な点: </span>
                     {profile?.strengths}
                   </p>
                   <p>
-                    <span className="text-xs font-medium text-zinc-500">課題: </span>
+                    <span className="text-xs font-medium text-ink-muted">課題: </span>
                     {profile?.challenges}
                   </p>
                   <p>
-                    <span className="text-xs font-medium text-zinc-500">学習履歴の要約: </span>
+                    <span className="text-xs font-medium text-ink-muted">学習履歴の要約: </span>
                     {profile?.summary}
                   </p>
                   {profile?.generated_at && (
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-ink-faint">
                       生成日時: {new Date(profile.generated_at).toLocaleString("ja-JP")}
                     </p>
                   )}
@@ -195,21 +195,21 @@ export default async function StudentsPage({
               )}
 
               {status === "done" && (
-                <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                <div className="mt-3 border-t border-line pt-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    <span className="text-xs font-medium text-ink">
                       個別最適化の提案(F11)
                     </span>
                     <div className="flex shrink-0 items-center gap-2">
                       {suggestion && (
-                        <span className="text-xs text-zinc-400">
+                        <span className="text-xs text-ink-faint">
                           {SUGGESTION_STATUS_LABELS[suggestion.status]}
                         </span>
                       )}
                       <form action={boundGeneratePersonalizationAction}>
                         <SubmitButton
                           pendingText="生成中…"
-                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
+                          className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
                         >
                           {suggestion ? "再生成する" : "提案を生成する"}
                         </SubmitButton>
@@ -220,19 +220,19 @@ export default async function StudentsPage({
                   {suggestion && (
                     <div className="mt-2 space-y-2">
                       <p>
-                        <span className="text-xs text-zinc-500">同じ誤解を避ける問い: </span>
+                        <span className="text-xs text-ink-muted">同じ誤解を避ける問い: </span>
                         {suggestion.avoid_misconception_question}
                       </p>
                       <p>
-                        <span className="text-xs text-zinc-500">探究テーマの提案: </span>
+                        <span className="text-xs text-ink-muted">探究テーマの提案: </span>
                         {suggestion.inquiry_theme_suggestion}
                       </p>
                       <p>
-                        <span className="text-xs text-zinc-500">促し方の調整: </span>
+                        <span className="text-xs text-ink-muted">促し方の調整: </span>
                         {suggestion.prompting_adjustment}
                       </p>
                       <p>
-                        <span className="text-xs text-zinc-500">難度・足場かけの調整: </span>
+                        <span className="text-xs text-ink-muted">難度・足場かけの調整: </span>
                         {suggestion.difficulty_adjustment}
                       </p>
 
@@ -241,7 +241,7 @@ export default async function StudentsPage({
                           <form action={boundAcceptAction}>
                             <button
                               type="submit"
-                              className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                              className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                             >
                               採用する
                             </button>
@@ -249,7 +249,7 @@ export default async function StudentsPage({
                           <form action={boundDeclineAction}>
                             <button
                               type="submit"
-                              className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                              className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                             >
                               見送る
                             </button>
@@ -264,7 +264,7 @@ export default async function StudentsPage({
           );
         })}
         {studentIds.length === 0 && (
-          <li className="text-sm text-zinc-500">まだ活動記録のある学習者がいません。</li>
+          <li className="text-sm text-ink-muted">まだ活動記録のある学習者がいません。</li>
         )}
       </ul>
     </div>

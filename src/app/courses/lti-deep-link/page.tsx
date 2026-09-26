@@ -31,10 +31,10 @@ export default async function LtiDeepLinkPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="text-2xl font-semibold text-ink">
         LMSにリンクする授業を選ぶ(F17)
       </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         {returnUrl
           ? "LMSの課題にリンクするSynclieの授業を選んでください。選ぶとLMSの画面に戻ります。"
           : "この課題(リソースリンク)にリンクするSynclieの授業を選んでください。"}
@@ -51,16 +51,16 @@ export default async function LtiDeepLinkPage({
             returnUrl,
           });
           return (
-            <li key={course.id} className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
+            <li key={course.id} className="rounded-md border border-line px-4 py-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span>
-                  <span className="font-medium text-zinc-950 dark:text-zinc-50">{course.title}</span>
-                  {course.subject && <span className="ml-2 text-zinc-500">({course.subject})</span>}
+                  <span className="font-medium text-ink">{course.title}</span>
+                  {course.subject && <span className="ml-2 text-ink-muted">({course.subject})</span>}
                 </span>
                 {returnUrl ? (
                   <Link
                     href={`/courses/lti-deep-link/submit?${submitParams.toString()}`}
-                    className="shrink-0 rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                    className="shrink-0 rounded-md bg-accent-fill px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-fill-hover"
                   >
                     この授業を選ぶ
                   </Link>
@@ -72,7 +72,7 @@ export default async function LtiDeepLinkPage({
                     <input type="hidden" name="resourceLinkId" value={resourceLinkId} />
                     <button
                       type="submit"
-                      className="shrink-0 rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                      className="shrink-0 rounded-md bg-accent-fill px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-fill-hover"
                     >
                       この授業を選ぶ
                     </button>
@@ -83,7 +83,7 @@ export default async function LtiDeepLinkPage({
           );
         })}
         {(!courses || courses.length === 0) && (
-          <li className="text-sm text-zinc-500">まだ授業がありません。先に授業を作成してください。</li>
+          <li className="text-sm text-ink-muted">まだ授業がありません。先に授業を作成してください。</li>
         )}
       </ul>
     </div>

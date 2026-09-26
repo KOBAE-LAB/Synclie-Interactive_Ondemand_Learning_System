@@ -87,29 +87,29 @@ export default async function ConformityPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <Link href={`/courses/${courseId}`} className="text-sm text-zinc-500 hover:underline">
+      <Link href={`/courses/${courseId}`} className="text-sm text-ink-muted hover:underline">
         ← {course.title}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         ペルソナ設計と同調の計測(F20)
       </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         学習者の発言に新しい根拠・具体例が無いのに、擬似メンバーが同調(譲歩)した割合を
         ペルソナごとに集計する。ペルソナの設定(F03/F04)を変えて比較する材料にする。
       </p>
 
-      <div className="mt-8 rounded-lg border border-zinc-200 p-5 text-sm dark:border-zinc-800">
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <div className="mt-8 rounded-lg border border-line p-5 text-sm">
+        <h2 className="text-sm font-medium text-ink">
           ペルソナ別の同調率
         </h2>
         {statsByPersona.size === 0 && (
-          <p className="mt-2 text-zinc-500">まだ評価データがありません。</p>
+          <p className="mt-2 text-ink-muted">まだ評価データがありません。</p>
         )}
         <ul className="mt-3 space-y-2">
           {[...statsByPersona.entries()].map(([personaId, stat]) => (
             <li key={personaId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <span>{personaNames.get(personaId) ?? personaId}</span>
-              <span className="text-zinc-500">
+              <span className="text-ink-muted">
                 {stat.unwarranted}/{stat.total}件({Math.round((stat.unwarranted / stat.total) * 100)}%)
               </span>
             </li>
@@ -118,24 +118,24 @@ export default async function ConformityPage({
       </div>
 
       <div className="mt-6">
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <h2 className="text-sm font-medium text-ink">
           根拠なく同調したと判定された発言({flagged.length}件)
         </h2>
         <ul className="mt-3 space-y-2">
           {flagged.map((evaluation) => (
             <li
               key={evaluation.id}
-              className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950"
+              className="rounded-md border border-warn bg-warn-soft px-4 py-3 text-sm"
             >
-              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+              <p className="text-xs font-medium text-warn">
                 {evaluation.persona_id ? (personaNames.get(evaluation.persona_id) ?? "不明") : "不明"} ・
                 {new Date(evaluation.created_at).toLocaleString("ja-JP")}
               </p>
-              <p className="mt-1 text-amber-900 dark:text-amber-200">{evaluation.summary_comment}</p>
+              <p className="mt-1 text-warn">{evaluation.summary_comment}</p>
             </li>
           ))}
           {flagged.length === 0 && evaluations.length > 0 && (
-            <li className="text-sm text-zinc-500">
+            <li className="text-sm text-ink-muted">
               根拠なく同調したと判定された発言はありません。
             </li>
           )}

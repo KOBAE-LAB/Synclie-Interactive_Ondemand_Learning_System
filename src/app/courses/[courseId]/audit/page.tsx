@@ -88,13 +88,13 @@ export default async function PersonaAuditPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <Link href={`/courses/${courseId}`} className="text-sm text-zinc-500 hover:underline">
+      <Link href={`/courses/${courseId}`} className="text-sm text-ink-muted hover:underline">
         ← {course.title}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         擬似メンバーの挙動の監査と修正(F15)
       </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         擬似メンバーの発言ログを確認し、不適切・不正確な内容を直接修正できる。修正した内容は、
         その後の対話でも擬似メンバー自身の履歴として使われるため、同じ誤りが続くのを防げる。
       </p>
@@ -107,24 +107,24 @@ export default async function PersonaAuditPage({
               key={turn.id}
               className={`rounded-md border px-4 py-3 text-sm ${
                 turn.flagged_by_teacher
-                  ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
-                  : "border-zinc-200 dark:border-zinc-800"
+                  ? "border-warn bg-warn-soft"
+                  : "border-line"
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-ink-muted">
                   {turn.persona_id ? (personaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー"}
                   (AI) ・ {new Date(turn.created_at).toLocaleString("ja-JP")}
                 </span>
                 {turn.flagged_by_teacher && (
-                  <span className="shrink-0 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-200">
+                  <span className="shrink-0 rounded-full bg-warn-soft px-2 py-0.5 text-xs font-medium text-warn">
                     フラグ済み
                   </span>
                 )}
               </div>
 
               {turn.precedingStudentContent && (
-                <p className="mt-2 whitespace-pre-wrap rounded-md bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+                <p className="mt-2 whitespace-pre-wrap rounded-md bg-surface px-3 py-2 text-xs text-ink-muted">
                   学習者: {turn.precedingStudentContent}
                 </p>
               )}
@@ -137,7 +137,7 @@ export default async function PersonaAuditPage({
                     required
                     rows={3}
                     defaultValue={turn.content}
-                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
                   />
                 </label>
                 <label className="block">
@@ -147,16 +147,16 @@ export default async function PersonaAuditPage({
                     rows={2}
                     placeholder="確認メモ(任意): 何が問題だったか、何を直したか"
                     defaultValue={turn.teacher_note ?? ""}
-                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
                   />
                 </label>
-                <label className="flex items-center gap-2 text-xs text-zinc-500">
+                <label className="flex items-center gap-2 text-xs text-ink-muted">
                   <input type="checkbox" name="flagged" defaultChecked={turn.flagged_by_teacher} />
                   不適切・不正確な発言としてフラグを立てる
                 </label>
                 <button
                   type="submit"
-                  className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                 >
                   保存する
                 </button>
@@ -165,7 +165,7 @@ export default async function PersonaAuditPage({
           );
         })}
         {personaTurns.length === 0 && (
-          <li className="text-sm text-zinc-500">まだ擬似メンバーの発言がありません。</li>
+          <li className="text-sm text-ink-muted">まだ擬似メンバーの発言がありません。</li>
         )}
       </ul>
     </div>

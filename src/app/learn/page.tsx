@@ -24,9 +24,9 @@ export default async function LearnCoursesPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">授業一覧</h1>
-      <p className="mt-1 text-sm text-zinc-500">{user.name ?? user.email} さん</p>
-      <div className="mt-1 flex gap-3 text-sm text-zinc-500">
+      <h1 className="text-2xl font-semibold text-ink">授業一覧</h1>
+      <p className="mt-1 text-sm text-ink-muted">{user.name ?? user.email} さん</p>
+      <div className="mt-1 flex gap-3 text-sm text-ink-muted">
         <Link href="/learn/dashboard" className="hover:underline">
           学習ダッシュボード(F23)→
         </Link>
@@ -40,16 +40,16 @@ export default async function LearnCoursesPage() {
           <li key={course.id}>
             <Link
               href={`/learn/${course.id}`}
-              className="block rounded-md border border-zinc-200 px-4 py-3 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+              className="block rounded-md border border-line px-4 py-3 text-sm hover:bg-surface"
             >
-              <span className="font-medium text-zinc-950 dark:text-zinc-50">{course.title}</span>
-              {course.subject && <span className="ml-2 text-zinc-500">({course.subject})</span>}
-              <span className="ml-2 text-xs text-zinc-400">[{MODE_LABELS[course.mode] ?? course.mode}]</span>
+              <span className="font-medium text-ink">{course.title}</span>
+              {course.subject && <span className="ml-2 text-ink-muted">({course.subject})</span>}
+              <span className="ml-2 text-xs text-ink-faint">[{MODE_LABELS[course.mode] ?? course.mode}]</span>
             </Link>
           </li>
         ))}
         {(!courses || courses.length === 0) && (
-          <li className="text-sm text-zinc-500">まだ授業がありません。</li>
+          <li className="text-sm text-ink-muted">まだ授業がありません。</li>
         )}
       </ul>
     </div>
