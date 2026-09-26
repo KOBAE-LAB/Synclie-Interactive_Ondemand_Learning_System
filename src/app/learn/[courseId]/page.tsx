@@ -338,7 +338,11 @@ export default async function LearnCourseSessionPage({
               同じ考え方)。1人なら大きな1枚のタイル、複数人ならギャラリービュー風に
               並べ、まるで同期オンライン学習をしているような臨場感を出す。実写/3Dアバターは
               使わず、既存のイラスト画像(F25、都度生成はしない)をそのまま使う。 */}
-          <div className={`grid gap-3 ${activePersonas.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+          <div
+            className={`mx-auto grid gap-3 ${
+              activePersonas.length === 1 ? "max-w-sm grid-cols-1" : "max-w-xl grid-cols-2"
+            }`}
+          >
             {activePersonas.map((persona) => {
               const avatarPath = personaAvatarPaths.get(persona.id);
               // 直近に発言した相手を「発言中」として縁取りで示す。誰も発言していない
@@ -352,7 +356,7 @@ export default async function LearnCourseSessionPage({
               return (
                 <div
                   key={persona.id}
-                  className={`relative aspect-square overflow-hidden rounded-lg bg-canvas ${ringClass}`}
+                  className={`relative aspect-video overflow-hidden rounded-lg bg-canvas ${ringClass}`}
                 >
                   {/* 背景(部屋)レイヤー */}
                   <img
@@ -361,13 +365,14 @@ export default async function LearnCourseSessionPage({
                     aria-hidden="true"
                     className="absolute inset-0 h-full w-full object-cover"
                   />
-                  {/* 人物レイヤー(透過)。背景と同じ正方形の構図で作っているので、
-                      そのまま重ねるだけで自然に合成される。 */}
+                  {/* 人物レイヤー(透過)。タイル全面を覆うと顔が大写しになりすぎるため、
+                      頭の頂点が画面の縦半分〜4分の3あたりに来る大きさ・位置に収め、
+                      実際のビデオ通話のような「上に余白のある」構図にする。 */}
                   {avatarPath ? (
                     <img
                       src={avatarPath}
                       alt=""
-                      className="avatar-idle absolute inset-0 h-full w-full object-cover"
+                      className="avatar-idle absolute inset-x-0 bottom-0 h-[38%] w-full object-contain object-bottom"
                     />
                   ) : (
                     <span
@@ -405,55 +410,6 @@ export default async function LearnCourseSessionPage({
           </div>
         </div>
       )}
-
-      <h2 className="mt-6 text-xs font-medium text-ink-faint">これまでのやり取り</h2>
-      <div className="mt-2 space-y-4">
-        {turns.map((turn) => {
-          if (turn.speaker_type === "student") {
-            return (
-              <div key={turn.id} className="text-right">
-                <div className="inline-block max-w-[75%] rounded-lg bg-accent-fill px-4 py-2 text-left text-sm text-white">
-                  {turn.source_kind === "handwriting" && (
-                    <p className="mb-1 text-xs text-ink-faint">[手書きから変換]</p>
-                  )}
-                  {turn.source_kind === "audio" && <p className="mb-1 text-xs text-ink-faint">[音声から変換]</p>}
-                  <p className="whitespace-pre-wrap">{turn.content}</p>
-                </div>
-              </div>
-            );
-          }
-
-          const avatarPath = turn.persona_id ? personaAvatarPaths.get(turn.persona_id) : undefined;
-          const personaName = turn.persona_id ? (personaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー";
-          return (
-            <div key={turn.id} className="flex items-end gap-2">
-              {avatarPath ? (
-                <img src={avatarPath} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-full" />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-xs text-ink-faint"
-                >
-                  ?
-                </span>
-              )}
-              <div className="max-w-[75%]">
-                <p className="mb-1 text-xs font-medium text-ink-muted">{personaName}(AI)</p>
-                <div className="inline-block rounded-lg bg-surface px-4 py-2 text-left text-sm text-ink">
-                  {turn.source_kind === "handwriting" && (
-                    <p className="mb-1 text-xs text-ink-faint">[手書きから変換]</p>
-                  )}
-                  {turn.source_kind === "audio" && <p className="mb-1 text-xs text-ink-faint">[音声から変換]</p>}
-                  <p className="whitespace-pre-wrap">{turn.content}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {turns.length === 0 && (
-          <p className="text-sm text-ink-muted">まだ発言がありません。下から発言してみましょう。</p>
-        )}
-      </div>
 
       <form action={boundSendAction} className="mt-6">
         <div className="flex gap-2">
@@ -653,6 +609,55 @@ export default async function LearnCourseSessionPage({
           })}
         </ul>
       )}
+
+      <h2 className="mt-8 text-xs font-medium text-ink-faint">これまでのやり取り</h2>
+      <div className="mt-2 space-y-4">
+        {turns.map((turn) => {
+          if (turn.speaker_type === "student") {
+            return (
+              <div key={turn.id} className="text-right">
+                <div className="inline-block max-w-[75%] rounded-lg bg-accent-fill px-4 py-2 text-left text-sm text-white">
+                  {turn.source_kind === "handwriting" && (
+                    <p className="mb-1 text-xs text-ink-faint">[手書きから変換]</p>
+                  )}
+                  {turn.source_kind === "audio" && <p className="mb-1 text-xs text-ink-faint">[音声から変換]</p>}
+                  <p className="whitespace-pre-wrap">{turn.content}</p>
+                </div>
+              </div>
+            );
+          }
+
+          const avatarPath = turn.persona_id ? personaAvatarPaths.get(turn.persona_id) : undefined;
+          const personaName = turn.persona_id ? (personaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー";
+          return (
+            <div key={turn.id} className="flex items-end gap-2">
+              {avatarPath ? (
+                <img src={avatarPath} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-full" />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-xs text-ink-faint"
+                >
+                  ?
+                </span>
+              )}
+              <div className="max-w-[75%]">
+                <p className="mb-1 text-xs font-medium text-ink-muted">{personaName}(AI)</p>
+                <div className="inline-block rounded-lg bg-surface px-4 py-2 text-left text-sm text-ink">
+                  {turn.source_kind === "handwriting" && (
+                    <p className="mb-1 text-xs text-ink-faint">[手書きから変換]</p>
+                  )}
+                  {turn.source_kind === "audio" && <p className="mb-1 text-xs text-ink-faint">[音声から変換]</p>}
+                  <p className="whitespace-pre-wrap">{turn.content}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {turns.length === 0 && (
+          <p className="text-sm text-ink-muted">まだ発言がありません。下から発言してみましょう。</p>
+        )}
+      </div>
 
       <div className="mt-12 border-t border-line pt-8">
         <h2 className="text-sm font-medium text-ink">
