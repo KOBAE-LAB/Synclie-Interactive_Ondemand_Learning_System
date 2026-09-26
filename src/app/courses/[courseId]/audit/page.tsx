@@ -111,7 +111,7 @@ export default async function PersonaAuditPage({
                   : "border-zinc-200 dark:border-zinc-800"
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                   {turn.persona_id ? (personaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー"}
                   (AI) ・ {new Date(turn.created_at).toLocaleString("ja-JP")}

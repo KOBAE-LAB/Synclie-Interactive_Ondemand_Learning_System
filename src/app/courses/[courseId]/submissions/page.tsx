@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { updateFeedbackAction, sendGradeToLmsAction } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 interface SubmissionRow {
   id: string;
@@ -207,17 +208,17 @@ export default async function SubmissionsReviewPage({
 
               {judgment && (
                 <div className="mt-4 space-y-1 border-t border-zinc-200 pt-3 text-xs dark:border-zinc-800">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-medium text-zinc-700 dark:text-zinc-300">
                       AIジャッジ(F24): 議論全体を通しての評価
                     </p>
                     <form action={sendGradeToLmsAction.bind(null, courseId, submission.id)}>
-                      <button
-                        type="submit"
-                        className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      <SubmitButton
+                        pendingText="送信中…"
+                        className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                       >
                         LMSに成績を送信する(F17)
-                      </button>
+                      </SubmitButton>
                     </form>
                   </div>
                   <p className="text-zinc-500">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { requestCrossOrgAccessAction, duplicatePersonaAction, duplicateMaterialAction } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 // F21: 教員協働のペルソナ・教材ライブラリ共有。
 // 「教員(授業者)が、単元の対応表や擬似メンバー設定を学校・地域をまたいで複製・共有し、
@@ -145,7 +146,7 @@ export default async function LibraryPage() {
 
           return (
             <li key={persona.id} className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="font-medium text-zinc-950 dark:text-zinc-50">
                   {persona.name}
                   {persona.profile?.role && <span className="ml-2 text-zinc-500">({persona.profile.role})</span>}
@@ -175,12 +176,12 @@ export default async function LibraryPage() {
                       </option>
                     ))}
                   </select>
-                  <button
-                    type="submit"
-                    className="rounded-md bg-zinc-950 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                  <SubmitButton
+                    pendingText="複製中…"
+                    className="rounded-md bg-zinc-950 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
                   >
                     複製する
-                  </button>
+                  </SubmitButton>
                 </form>
               )}
               {!isOwn && !sameOrg && status === "none" && (
@@ -216,7 +217,7 @@ export default async function LibraryPage() {
 
           return (
             <li key={material.id} className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="font-medium text-zinc-950 dark:text-zinc-50">{material.title}</span>
                 {isOwn && <span className="text-xs text-zinc-400">自分の共有</span>}
               </div>
@@ -243,12 +244,12 @@ export default async function LibraryPage() {
                       </option>
                     ))}
                   </select>
-                  <button
-                    type="submit"
-                    className="rounded-md bg-zinc-950 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                  <SubmitButton
+                    pendingText="複製中…"
+                    className="rounded-md bg-zinc-950 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
                   >
                     複製する
-                  </button>
+                  </SubmitButton>
                 </form>
               )}
               {!isOwn && !sameOrg && status === "none" && (

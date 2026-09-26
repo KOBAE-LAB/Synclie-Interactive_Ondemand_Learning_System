@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { requireConsent } from "@/lib/consent";
+import { SubmitButton } from "@/components/submit-button";
 import {
   sendMessageAction,
   submitOutcomeAction,
@@ -341,15 +342,15 @@ export default async function LearnCourseSessionPage({
           placeholder="発言を入力"
           className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
-        <button
-          type="submit"
-          className="shrink-0 self-end rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+        <SubmitButton
+          pendingText="送信中…"
+          className="shrink-0 self-end rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
         >
           送信
-        </button>
+        </SubmitButton>
       </form>
 
-      <form action={boundUploadHandwritingAction} className="mt-3 flex items-center gap-2">
+      <form action={boundUploadHandwritingAction} className="mt-3 flex flex-wrap items-center gap-2">
         <label className="text-xs text-zinc-500">
           手書きで発言する(F12):
           <input
@@ -357,18 +358,18 @@ export default async function LearnCourseSessionPage({
             type="file"
             accept="image/*"
             required
-            className="ml-2 text-xs text-zinc-700 dark:text-zinc-300"
+            className="ml-2 max-w-[10rem] text-xs text-zinc-700 dark:text-zinc-300"
           />
         </label>
-        <button
-          type="submit"
-          className="shrink-0 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        <SubmitButton
+          pendingText="読み取り中…"
+          className="shrink-0 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           画像を読み取る
-        </button>
+        </SubmitButton>
       </form>
 
-      <form action={boundUploadAudioAction} className="mt-3 flex items-center gap-2">
+      <form action={boundUploadAudioAction} className="mt-3 flex flex-wrap items-center gap-2">
         <label className="text-xs text-zinc-500">
           音声で発言する(F13):
           <input
@@ -376,15 +377,15 @@ export default async function LearnCourseSessionPage({
             type="file"
             accept="audio/*"
             required
-            className="ml-2 text-xs text-zinc-700 dark:text-zinc-300"
+            className="ml-2 max-w-[10rem] text-xs text-zinc-700 dark:text-zinc-300"
           />
         </label>
-        <button
-          type="submit"
-          className="shrink-0 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        <SubmitButton
+          pendingText="文字起こし中…"
+          className="shrink-0 rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           音声を文字起こしする
-        </button>
+        </SubmitButton>
       </form>
 
       {pendingAudioUploads.length > 0 && (
@@ -430,12 +431,12 @@ export default async function LearnCourseSessionPage({
                       />
                     </label>
                     <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        className="rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                      <SubmitButton
+                        pendingText="送信中…"
+                        className="rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
                       >
                         この内容で送信
-                      </button>
+                      </SubmitButton>
                     </div>
                   </form>
                 )}
@@ -498,12 +499,12 @@ export default async function LearnCourseSessionPage({
                       />
                     </label>
                     <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        className="rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                      <SubmitButton
+                        pendingText="送信中…"
+                        className="rounded-md bg-zinc-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
                       >
                         この内容で送信
-                      </button>
+                      </SubmitButton>
                     </div>
                   </form>
                 )}
@@ -579,7 +580,7 @@ export default async function LearnCourseSessionPage({
                   className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
                 >
                   <p className="whitespace-pre-wrap">{submission.content}</p>
-                  <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-zinc-400">
                       {new Date(submission.created_at).toLocaleString("ja-JP")}
                     </p>
@@ -588,12 +589,12 @@ export default async function LearnCourseSessionPage({
                         フィードバック: {FEEDBACK_STATUS_LABELS[submission.feedback_status]}
                       </span>
                       <form action={boundGenerateFeedbackAction}>
-                        <button
-                          type="submit"
-                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        <SubmitButton
+                          pendingText="生成中…"
+                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                         >
                           {submission.feedback_status === "done" ? "再生成する" : "フィードバックをもらう"}
-                        </button>
+                        </SubmitButton>
                       </form>
                     </div>
                   </div>
@@ -602,12 +603,12 @@ export default async function LearnCourseSessionPage({
                       AIジャッジ(F24): {JUDGMENT_STATUS_LABELS[submission.judgment_status]}
                     </span>
                     <form action={boundJudgeDiscussionAction}>
-                      <button
-                        type="submit"
-                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      <SubmitButton
+                        pendingText="ジャッジ中…"
+                        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                       >
                         {submission.judgment_status === "done" ? "再ジャッジする" : "AIジャッジを受ける"}
-                      </button>
+                      </SubmitButton>
                     </form>
                   </div>
 

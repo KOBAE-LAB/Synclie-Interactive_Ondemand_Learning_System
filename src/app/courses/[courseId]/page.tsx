@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
+import { SubmitButton } from "@/components/submit-button";
 import {
   uploadMaterialAction,
   generateMaterialRagAction,
@@ -207,18 +208,18 @@ export default async function CourseDetailPage({
         </button>
       </form>
 
-      <div className="mt-8 flex items-center justify-between">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           資料と知識ベース(RAG)
         </h2>
         {pendingCount > 0 && (
           <form action={boundGenerateAllAction}>
-            <button
-              type="submit"
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            <SubmitButton
+              pendingText="生成中…"
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
             >
               未処理の資料をまとめて生成({pendingCount}件)
-            </button>
+            </SubmitButton>
           </form>
         )}
       </div>
@@ -239,7 +240,7 @@ export default async function CourseDetailPage({
               key={material.id}
               className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <span className="font-medium text-zinc-950 dark:text-zinc-50">{material.title}</span>
                   <span className="ml-2 text-zinc-500">
@@ -252,12 +253,12 @@ export default async function CourseDetailPage({
                     {material.rag_status === "done" && chunkCount > 0 && `(${chunkCount}チャンク)`}
                   </span>
                   <form action={boundGenerateOneAction}>
-                    <button
-                      type="submit"
-                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    <SubmitButton
+                      pendingText="生成中…"
+                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
                     >
                       {material.rag_status === "done" ? "再生成" : "生成する"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </div>

@@ -107,7 +107,7 @@ export default async function ConformityPage({
         )}
         <ul className="mt-3 space-y-2">
           {[...statsByPersona.entries()].map(([personaId, stat]) => (
-            <li key={personaId} className="flex items-center justify-between">
+            <li key={personaId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <span>{personaNames.get(personaId) ?? personaId}</span>
               <span className="text-zinc-500">
                 {stat.unwarranted}/{stat.total}件({Math.round((stat.unwarranted / stat.total) * 100)}%)

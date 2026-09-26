@@ -213,7 +213,7 @@ export default async function CourseDashboardPage({
                   : "border-zinc-200 dark:border-zinc-800"
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="font-medium text-zinc-950 dark:text-zinc-50">
                   {studentNames.get(stat.studentId) ?? "(不明な学習者)"}
                 </span>
@@ -256,7 +256,7 @@ export default async function CourseDashboardPage({
       </h2>
       <ul className="mt-3 space-y-2">
         {[...personaStats.entries()].map(([personaId, stat]) => (
-          <li key={personaId} className="flex items-center justify-between text-sm">
+          <li key={personaId} className="flex flex-wrap items-center justify-between text-sm">
             <span>{personaNames.get(personaId) ?? "(承認待ち等)"}</span>
             <span className="text-zinc-500">
               根拠なく同調 {stat.unwarranted}/{stat.total}件(

@@ -90,7 +90,7 @@ export default async function EvaluationCriteriaPage({
           return (
             <li
               key={criterion.id}
-              className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
             >
               <Link
                 href={`/courses/${courseId}/criteria/${criterion.id}`}

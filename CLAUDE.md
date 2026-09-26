@@ -140,6 +140,20 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
 
 ## 8. リポジトリ構成
 
+- `src/app/layout.tsx` — ルートレイアウト。ログイン中のみ、ロールに応じたホームへの
+  リンク(教師→`/courses`、学習者→`/learn`)とログアウトボタンを出す共通ヘッダーを表示する
+  (`src/app/logout-action.ts`の`logoutAction`が`signOut()`を呼ぶ)。UIレビューで
+  「アプリ内にログアウト手段が無く、NextAuth既定の`/api/auth/signout`を直接開くしかない」
+  という指摘が出たため追加した。アプリ全体でここにしかナビゲーションは無いので、
+  新しい画面を追加する時もここに依存しない導線(戻るリンク等)を各ページ側に用意すること
+- `src/components/submit-button.tsx` — `SubmitButton`。AI呼び出しなど数秒かかる
+  サーバーアクションの送信ボタンをラップし、送信中は無効化してラベルを
+  (例:「生成中…」)に差し替える(`useFormStatus`を使うため`"use client"`が必要な
+  唯一の理由。フォーム自体はサーバーアクションのまま)。UIレビューで「処理中の見た目の
+  変化が無く、二重送信の恐れがある」という指摘が出たため、RAG生成・メッセージ送信・
+  手書き/音声の確認送信・AIフィードバック/AIジャッジ/学習者プロファイル/個別最適化提案/
+  アバター推薦/LMS成績送信/共有ライブラリの複製など、AI呼び出しやネットワーク呼び出しを
+  伴うボタンに適用した(即時完了する承認・削除・共有トグルなどには適用していない)
 - `src/app/` — Next.js App Router のページ・APIルート
   - `src/app/page.tsx` — ログイン後の行き先をロールで振り分ける(教師→`/courses`、
     学習者→`/learn`)。`login/actions.ts`の`loginAction`は`redirectTo: "/"`固定にしてあり、
@@ -476,6 +490,37 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
   (フラットイラスト風の顔アイコンSVG、画像生成APIは使わずコード内で図形として組み立てる)を
   `public/avatars/`に書き出し、`0024_persona_avatars.sql`に貼り付ける insert 文を標準出力する
   使い捨てスクリプト(候補を増やしたい時の参考用に残してある)。
+
+### UIレビューでの指摘と対応(2026-09-26)
+
+実機で全画面を教師・生徒両方の操作で通しレビューした結果、MVP(段階1)のロジック自体は
+高品質に動いている一方、以下の基礎的なUI基盤が未整備だった。優先度の高い3点は対応済み:
+
+- **グローバルナビゲーション皆無**(対応済み): `src/app/layout.tsx`にヘッダーを追加(上記参照)。
+- **狭い画面幅でのレイアウト崩れ**(対応済み): `flex items-center justify-between`のような
+  「右詰めボタン列」パターンに`flex-wrap`が付いておらず、タブレット幅などでボタンが画面外に
+  はみ出す/テキストが1文字ずつ縦に割れる、という崩れが複数画面(ペルソナ一覧・学習者
+  ダッシュボード・共有ライブラリ等)で発生していた。**この種の行を新しく書く時は
+  必ず`flex flex-wrap items-center justify-between gap-x-3 gap-y-1`のように
+  `flex-wrap`と縦方向の`gap`を付けること**(このアプリはブレークポイント(`sm:`等)を
+  一切使わない方針のため、`flex-wrap`だけで崩れを防ぐ)。
+- **サーバーアクション実行中のフィードバック皆無**(対応済み): `src/components/submit-button.tsx`の
+  `SubmitButton`を、AI呼び出し・外部API呼び出しを伴うボタンに適用済み(上記参照)。
+  **新しくAI呼び出しを伴うボタンを追加する時は、素の`<button type="submit">`ではなく
+  `SubmitButton`を使うこと**。
+
+未対応(把握はしているが今回は対応していない、優先度順):
+- 授業詳細ページ(`courses/[courseId]/page.tsx`)の導線が、資料が無い段階でもF14〜F15までの
+  リンクが平文で並ぶだけで、初めての教師への誘導が弱い。生徒ビューへの導線も
+  `/learn/<uuid>`という生のURLを教師に手打ちさせる形のまま
+- 資料の種類「テキスト」を選んでも、直接テキストエリアに貼り付ける経路が無く、
+  ファイルアップロードのみ(`src/lib/rag/extract.ts`)
+- URL資料の取り込み(`extractFromUrl`)がHTMLのnav/footer等のボイラープレートを除去せず、
+  本文と一緒にRAGへ入ってしまう(`src/lib/rag/extract.ts`の`htmlToText`)
+- F24(AIジャッジ)の結果が`learn/[courseId]/portfolio/page.tsx`(F08ポートフォリオ)に
+  表示されない(discussion_judgmentsへの参照が無い)
+- F04(下書き→承認→使用中)は意図的な安全設計だが、1体だけ素早く試したい時でも
+  必ず2回の操作(承認する→授業で使う)が要る。ショートカットは無い
 
 ### 認証まわりの注意(重要・要フォローアップ)
 

@@ -52,7 +52,7 @@ export default async function LtiDeepLinkPage({
           });
           return (
             <li key={course.id} className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span>
                   <span className="font-medium text-zinc-950 dark:text-zinc-50">{course.title}</span>
                   {course.subject && <span className="ml-2 text-zinc-500">({course.subject})</span>}

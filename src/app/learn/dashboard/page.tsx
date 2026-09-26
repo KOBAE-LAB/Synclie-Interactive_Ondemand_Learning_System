@@ -152,7 +152,7 @@ export default async function StudentDashboardPage() {
       <ul className="mt-3 space-y-2">
         {statList.map((stat) => (
           <li key={stat.courseId} className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <Link href={`/learn/${stat.courseId}`} className="font-medium text-zinc-950 hover:underline dark:text-zinc-50">
                 {stat.title}
               </Link>
@@ -194,7 +194,7 @@ export default async function StudentDashboardPage() {
       <p className="mt-1 text-xs text-zinc-500">
         上のAIの提案や振り返りを参考に、次に取り組むことを自分で書き留めておける。
       </p>
-      <form action={addStudyPlanItemAction} className="mt-3 flex gap-2">
+      <form action={addStudyPlanItemAction} className="mt-3 flex flex-wrap gap-2">
         <label htmlFor="plan-content" className="sr-only">
           次に取り組むこと
         </label>
@@ -203,7 +203,7 @@ export default async function StudentDashboardPage() {
           name="content"
           required
           placeholder="次に取り組むこと"
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="min-w-0 flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
         <label htmlFor="plan-course" className="sr-only">
           関連する授業
@@ -212,7 +212,7 @@ export default async function StudentDashboardPage() {
           id="plan-course"
           name="courseId"
           defaultValue=""
-          className="rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="min-w-0 max-w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         >
           <option value="">(授業を指定しない)</option>
           {statList.map((stat) => (
@@ -237,7 +237,7 @@ export default async function StudentDashboardPage() {
           return (
             <li
               key={item.id}
-              className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
             >
               <div className="min-w-0">
                 <span className={item.done ? "text-zinc-400 line-through" : ""}>{item.content}</span>

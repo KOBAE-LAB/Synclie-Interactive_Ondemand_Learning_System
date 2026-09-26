@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
+import { SubmitButton } from "@/components/submit-button";
 import {
   createPersonaAction,
   deletePersonaAction,
@@ -150,12 +151,12 @@ export default async function PersonasPage({
           提案されたペルソナは、他のペルソナと同様に確認・編集してから承認・有効化すること。
         </p>
         <form action={boundGenerateEvolvedAction} className="mt-3">
-          <button
-            type="submit"
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          <SubmitButton
+            pendingText="生成中…"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
           >
             学習進化型ペルソナを生成する
-          </button>
+          </SubmitButton>
         </form>
 
         {corpusEntries && corpusEntries.length > 0 && (
@@ -197,7 +198,7 @@ export default async function PersonasPage({
               key={persona.id}
               className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800"
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <Link
                   href={`/courses/${courseId}/personas/${persona.id}`}
                   className="flex min-w-0 items-center gap-2 hover:underline"
@@ -310,12 +311,12 @@ export default async function PersonasPage({
                   {avatar && ` — ${avatar.label}`}
                 </span>
                 <form action={boundRecommendAvatarAction}>
-                  <button
-                    type="submit"
-                    className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  <SubmitButton
+                    pendingText="推薦中…"
+                    className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
                   >
                     {persona.avatar_id ? "AIに再推薦させる" : "AIに推薦させる"}
-                  </button>
+                  </SubmitButton>
                 </form>
                 <form action={boundSetAvatarAction} className="flex items-center gap-1">
                   <label className="sr-only" htmlFor={`avatar-select-${persona.id}`}>

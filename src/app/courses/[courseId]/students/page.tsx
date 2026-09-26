@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
+import { SubmitButton } from "@/components/submit-button";
 import {
   generateStudentProfileAction,
   generatePersonalizationAction,
@@ -150,19 +151,19 @@ export default async function StudentsPage({
               id={studentId}
               className="rounded-md border border-zinc-200 px-4 py-3 text-sm scroll-mt-6 dark:border-zinc-800"
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="font-medium text-zinc-950 dark:text-zinc-50">
                   {studentNames.get(studentId) ?? "(不明な学習者)"}
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="text-xs text-zinc-400">{STATUS_LABELS[status]}</span>
                   <form action={boundGenerateAction}>
-                    <button
-                      type="submit"
-                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    <SubmitButton
+                      pendingText="生成中…"
+                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
                     >
                       {status === "done" ? "再生成する" : "プロファイルを生成する"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </div>
@@ -195,7 +196,7 @@ export default async function StudentsPage({
 
               {status === "done" && (
                 <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                       個別最適化の提案(F11)
                     </span>
@@ -206,12 +207,12 @@ export default async function StudentsPage({
                         </span>
                       )}
                       <form action={boundGeneratePersonalizationAction}>
-                        <button
-                          type="submit"
-                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        <SubmitButton
+                          pendingText="生成中…"
+                          className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-50"
                         >
                           {suggestion ? "再生成する" : "提案を生成する"}
-                        </button>
+                        </SubmitButton>
                       </form>
                     </div>
                   </div>
