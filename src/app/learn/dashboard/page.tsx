@@ -2,7 +2,39 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/server";
 import { requireConsent } from "@/lib/consent";
-import { addStudyPlanItemAction, toggleStudyPlanItemAction, deleteStudyPlanItemAction } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
+import {
+  addStudyPlanItemAction,
+  toggleStudyPlanItemAction,
+  deleteStudyPlanItemAction,
+  generateLearnerProfileAction,
+  generateLearnerSuggestionsAction,
+} from "./actions";
+
+type LearnerProfileStatus = "pending" | "processing" | "done" | "failed";
+
+interface LearnerProfileRow {
+  status: LearnerProfileStatus;
+  error: string | null;
+  strengths: string | null;
+  challenges: string | null;
+  summary: string | null;
+  generated_at: string | null;
+}
+
+interface LearnerSuggestionRow {
+  avoid_misconception_question: string;
+  inquiry_theme_suggestion: string;
+  self_regulation_tip: string;
+  challenge_level_tip: string;
+}
+
+const LEARNER_PROFILE_STATUS_LABELS: Record<LearnerProfileStatus, string> = {
+  pending: "未生成",
+  processing: "生成中",
+  done: "生成済み",
+  failed: "失敗",
+};
 
 // F23: 生徒ダッシュボード。
 // 「学習者が自分の学習履歴(対話ログ、成果物、フィードバック、振り返り)を一覧で確認し、
@@ -38,6 +70,21 @@ export default async function StudentDashboardPage() {
   const { user } = await requireRole("student");
   const admin = createAdminClient();
   await requireConsent(admin, user.id);
+
+  // F26: 横断的な学びの記録とAIフィードバック。授業をまたいだ蓄積のため courseId では絞らない。
+  const { data: learnerProfileRow } = await admin
+    .from("learner_profiles")
+    .select("status, error, strengths, challenges, summary, generated_at")
+    .eq("student_id", user.id)
+    .maybeSingle();
+  const learnerProfile = learnerProfileRow as LearnerProfileRow | null;
+
+  const { data: learnerSuggestionRow } = await admin
+    .from("learner_suggestions")
+    .select("avoid_misconception_question, inquiry_theme_suggestion, self_regulation_tip, challenge_level_tip")
+    .eq("student_id", user.id)
+    .maybeSingle();
+  const learnerSuggestion = learnerSuggestionRow as LearnerSuggestionRow | null;
 
   const { data: sessions } = await admin
     .from("learning_sessions")
@@ -138,51 +185,113 @@ export default async function StudentDashboardPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <Link href="/learn" className="text-sm text-zinc-500 hover:underline">
+      <Link href="/learn" className="text-sm text-ink-muted hover:underline">
         ← 授業一覧
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+      <h1 className="mt-2 text-2xl font-semibold text-ink">
         学習ダッシュボード(F23)
       </h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-ink-muted">
         すべての授業の学習状況をまとめて確認し、AIの提案や振り返りをもとに次の学習計画を立てる。
       </p>
 
-      <h2 className="mt-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">授業ごとの学習状況</h2>
+      <div className="mt-6 rounded-lg border border-line p-5">
+        <h2 className="text-sm font-medium text-ink">
+          横断的な学びの記録とAIフィードバック(F26)
+        </h2>
+        <p className="mt-1 text-xs text-ink-muted">
+          すべての授業をまたいだ提出物・フィードバック・振り返りから、得意な点・課題・学習の流れ
+          をまとめ、次に取り組むとよいことを提案する。自分から求めたときだけ生成される。
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-ink-faint">
+            {LEARNER_PROFILE_STATUS_LABELS[learnerProfile?.status ?? "pending"]}
+          </span>
+          <form action={generateLearnerProfileAction}>
+            <SubmitButton
+              pendingText="生成中…"
+              className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
+            >
+              {learnerProfile?.status === "done" ? "再生成する" : "生成する"}
+            </SubmitButton>
+          </form>
+        </div>
+        {learnerProfile?.status === "failed" && learnerProfile.error && (
+          <p className="mt-2 text-xs text-danger">{learnerProfile.error}</p>
+        )}
+        {learnerProfile?.status === "done" && (
+          <div className="mt-3 space-y-2 border-t border-line pt-3 text-sm">
+            <p>
+              <span className="text-xs font-medium text-ink-muted">得意な点: </span>
+              {learnerProfile.strengths}
+            </p>
+            <p>
+              <span className="text-xs font-medium text-ink-muted">課題: </span>
+              {learnerProfile.challenges}
+            </p>
+            <p>
+              <span className="text-xs font-medium text-ink-muted">学習履歴の要約: </span>
+              {learnerProfile.summary}
+            </p>
+
+            <div className="mt-3 border-t border-line pt-3">
+              <form action={generateLearnerSuggestionsAction}>
+                <SubmitButton
+                  pendingText="生成中…"
+                  className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50"
+                >
+                  {learnerSuggestion ? "提案を再生成する" : "次に取り組むことの提案を生成する"}
+                </SubmitButton>
+              </form>
+
+              {learnerSuggestion && (
+                <div className="mt-2 space-y-1 text-xs text-ink-muted">
+                  <p>次に確かめてみるとよい問い: {learnerSuggestion.avoid_misconception_question}</p>
+                  <p>次の探究テーマの提案: {learnerSuggestion.inquiry_theme_suggestion}</p>
+                  <p>自分で意識するとよい工夫: {learnerSuggestion.self_regulation_tip}</p>
+                  <p>次に挑戦するとよい難易度の目安: {learnerSuggestion.challenge_level_tip}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <h2 className="mt-8 text-sm font-medium text-ink">授業ごとの学習状況</h2>
       <ul className="mt-3 space-y-2">
         {statList.map((stat) => (
-          <li key={stat.courseId} className="rounded-md border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
+          <li key={stat.courseId} className="rounded-md border border-line px-4 py-3 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <Link href={`/learn/${stat.courseId}`} className="font-medium text-zinc-950 hover:underline dark:text-zinc-50">
+              <Link href={`/learn/${stat.courseId}`} className="font-medium text-ink hover:underline">
                 {stat.title}
               </Link>
-              <Link href={`/learn/${stat.courseId}/portfolio`} className="shrink-0 text-xs text-zinc-500 hover:underline">
+              <Link href={`/learn/${stat.courseId}/portfolio`} className="shrink-0 text-xs text-ink-muted hover:underline">
                 ポートフォリオ(F08)→
               </Link>
             </div>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-ink-muted">
               発言{stat.turnCount}件・提出{stat.submissionCount}件
               {stat.lastActivityAt && `・最終活動 ${new Date(stat.lastActivityAt).toLocaleString("ja-JP")}`}
             </p>
             {stat.inquiryThemeSuggestion && (
-              <p className="mt-1 text-xs text-sky-600 dark:text-sky-400">
+              <p className="mt-1 text-xs text-accent">
                 おすすめの探究テーマ(F11): {stat.inquiryThemeSuggestion}
               </p>
             )}
           </li>
         ))}
-        {statList.length === 0 && <li className="text-sm text-zinc-500">まだ活動記録がありません。</li>}
+        {statList.length === 0 && <li className="text-sm text-ink-muted">まだ活動記録がありません。</li>}
       </ul>
 
       {nextGoals.length > 0 && (
         <>
-          <h2 className="mt-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <h2 className="mt-8 text-sm font-medium text-ink">
             振り返りで書いた「次にやりたいこと」(F08)
           </h2>
           <ul className="mt-3 space-y-2 text-sm">
             {nextGoals.map((goal, i) => (
-              <li key={i} className="rounded-md border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-                <p className="text-xs text-zinc-400">{goal.courseTitle}</p>
+              <li key={i} className="rounded-md border border-line px-4 py-3">
+                <p className="text-xs text-ink-faint">{goal.courseTitle}</p>
                 <p className="mt-1">{goal.content}</p>
               </li>
             ))}
@@ -190,8 +299,8 @@ export default async function StudentDashboardPage() {
         </>
       )}
 
-      <h2 className="mt-8 text-sm font-medium text-zinc-700 dark:text-zinc-300">学習計画</h2>
-      <p className="mt-1 text-xs text-zinc-500">
+      <h2 className="mt-8 text-sm font-medium text-ink">学習計画</h2>
+      <p className="mt-1 text-xs text-ink-muted">
         上のAIの提案や振り返りを参考に、次に取り組むことを自分で書き留めておける。
       </p>
       <form action={addStudyPlanItemAction} className="mt-3 flex flex-wrap gap-2">
@@ -203,7 +312,7 @@ export default async function StudentDashboardPage() {
           name="content"
           required
           placeholder="次に取り組むこと"
-          className="min-w-0 flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="min-w-0 flex-1 rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
         />
         <label htmlFor="plan-course" className="sr-only">
           関連する授業
@@ -212,7 +321,7 @@ export default async function StudentDashboardPage() {
           id="plan-course"
           name="courseId"
           defaultValue=""
-          className="min-w-0 max-w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="min-w-0 max-w-full rounded-md border border-line px-2 py-2 text-sm bg-surface-raised"
         >
           <option value="">(授業を指定しない)</option>
           {statList.map((stat) => (
@@ -223,7 +332,7 @@ export default async function StudentDashboardPage() {
         </select>
         <button
           type="submit"
-          className="shrink-0 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          className="shrink-0 rounded-md bg-accent-fill px-4 py-2 text-sm font-medium text-white hover:bg-accent-fill-hover"
         >
           追加する
         </button>
@@ -237,17 +346,17 @@ export default async function StudentDashboardPage() {
           return (
             <li
               key={item.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line px-4 py-2 text-sm"
             >
               <div className="min-w-0">
-                <span className={item.done ? "text-zinc-400 line-through" : ""}>{item.content}</span>
-                {courseTitle && <span className="ml-2 text-xs text-zinc-400">[{courseTitle}]</span>}
+                <span className={item.done ? "text-ink-faint line-through" : ""}>{item.content}</span>
+                {courseTitle && <span className="ml-2 text-xs text-ink-faint">[{courseTitle}]</span>}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <form action={boundToggle}>
                   <button
                     type="submit"
-                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                   >
                     {item.done ? "未完了に戻す" : "完了にする"}
                   </button>
@@ -255,7 +364,7 @@ export default async function StudentDashboardPage() {
                 <form action={boundDelete}>
                   <button
                     type="submit"
-                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
                   >
                     削除
                   </button>
@@ -264,7 +373,7 @@ export default async function StudentDashboardPage() {
             </li>
           );
         })}
-        {planItems.length === 0 && <li className="text-sm text-zinc-500">まだ学習計画がありません。</li>}
+        {planItems.length === 0 && <li className="text-sm text-ink-muted">まだ学習計画がありません。</li>}
       </ul>
     </div>
   );
