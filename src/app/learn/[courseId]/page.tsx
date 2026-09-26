@@ -372,7 +372,7 @@ export default async function LearnCourseSessionPage({
                     <img
                       src={avatarPath}
                       alt=""
-                      className="avatar-idle absolute inset-x-0 bottom-0 h-[38%] w-full object-contain object-bottom"
+                      className="avatar-idle absolute inset-x-0 bottom-0 h-[57%] w-full object-contain object-bottom"
                     />
                   ) : (
                     <span
