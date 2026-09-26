@@ -173,11 +173,17 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
   伴うボタンに適用した(即時完了する承認・削除・共有トグルなどには適用していない)
 - `src/components/thinking-indicator.tsx` — `ThinkingIndicator`。発言送信フォームの中に
   置き、擬似メンバーの応答が返るまでの間「(相手が)考えています」+点滅ドットを表示する
-  (`SubmitButton`と同じ理由で`"use client"`)。「臨場感・社会的存在感を大事にしたい」
-  という要望を受けて追加した。あわせて`globals.css`にアバター用の控えめなアイドル
-  アニメーション(`.avatar-idle`、静止画+CSSのみでVR等は使わない方針)と、直近に発言した
-  擬似メンバーを`learn/[courseId]/page.tsx`の対話相手アバター行で緑のリングで
-  ハイライトする仕組みを追加した。どちらも`prefers-reduced-motion`を尊重して無効化する
+  (`SubmitButton`と同じ理由で`"use client"`)。「臨場感・社会的存在感を大事にしたい。
+  Zoom/Teamsのようなビデオ会議のイメージで」という要望を受けて追加した。
+  `learn/[courseId]/page.tsx`の対話相手表示は、ビデオ会議アプリの「カメラオフ」参加者
+  タイル(丸アバター中央・名前ラベル左下)を模した`.persona-tile`(`globals.css`)にし、
+  直近に発言した擬似メンバー(開始直後は先頭の1人)だけ緑の縁取り+「発言中」バッジで
+  ハイライトする。実写/3Dアバターは使わず、既存の丸アバター画像(F25、都度生成はしない
+  方針のまま)をタイルに載せるだけで表現している。1人なら大きな1枚のタイル、複数なら
+  `grid-cols-2`のギャラリービューにする。タイルの下には、ビデオ会議のライブキャプション欄を
+  模して直近の発言をテキストでも表示する。あわせてアバター用の控えめなアイドル
+  アニメーション(`.avatar-idle`、静止画+CSSのみ)も入れている。どちらも
+  `prefers-reduced-motion`を尊重して無効化する
 - `src/app/` — Next.js App Router のページ・APIルート
   - `src/app/page.tsx` — ログイン後の行き先をロールで振り分ける(教師→`/courses`、
     学習者→`/learn`)。`login/actions.ts`の`loginAction`は`redirectTo: "/"`固定にしてあり、

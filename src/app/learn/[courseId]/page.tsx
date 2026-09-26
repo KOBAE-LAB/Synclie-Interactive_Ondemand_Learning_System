@@ -301,54 +301,70 @@ export default async function LearnCourseSessionPage({
       )}
 
       {activePersonas.length > 0 && (
-        <div className="persona-stage relative mt-6 overflow-hidden rounded-lg border border-line">
-          <div className="flex flex-wrap items-end justify-center gap-x-8 gap-y-4 px-6 pb-6 pt-10">
+        <div className="mt-6">
+          {/* ビデオ会議アプリ(Teams/Zoom等)の「カメラオフ」参加者タイルのような見た目にし、
+              対話の相手と向き合っている感覚を出す。1人なら大きな1枚のタイル、複数なら
+              ギャラリービュー風に並べる。実写/3Dアバターは使わず、既存の丸アバター画像
+              (F25、都度生成はしない)をタイルの中央に大きく置くだけで表現する。 */}
+          <div className={`grid gap-3 ${activePersonas.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
             {activePersonas.map((persona) => {
               const avatarPath = personaAvatarPaths.get(persona.id);
-              // 直近に発言した相手を大きく中心に見せ、「その相手に向かって話している」
-              // 臨場感を出す。誰も発言していない開始直後は、先頭の1人を仮の相手として大きく見せる。
+              // 直近に発言した相手を「発言中」として縁取りで示す。誰も発言していない
+              // 開始直後は、先頭の1人を仮の相手として同じように扱う。
               const isSpeaker =
                 persona.id === lastPersonaSpeakerId ||
                 (!lastPersonaSpeakerId && persona.id === activePersonas[0].id);
-              const sizeClass = isSpeaker ? "h-32 w-32" : "h-14 w-14 opacity-60";
-              const glowClass = isSpeaker ? "shadow-[0_0_50px_-8px_rgba(245,197,24,0.4)]" : "";
+              const ringClass = isSpeaker
+                ? "ring-2 ring-success persona-tile-speaking"
+                : "ring-1 ring-line";
+              const avatarSizeClass = activePersonas.length === 1 ? "h-32 w-32" : "h-20 w-20";
               return (
-                <div key={persona.id} className="flex flex-col items-center gap-2">
+                <div
+                  key={persona.id}
+                  className={`persona-tile relative flex items-center justify-center overflow-hidden rounded-lg ${ringClass} ${
+                    activePersonas.length === 1 ? "aspect-video" : "aspect-square"
+                  }`}
+                >
                   {avatarPath ? (
                     <img
                       src={avatarPath}
                       alt=""
-                      width={128}
-                      height={128}
-                      className={`avatar-idle rounded-full ${sizeClass} ${glowClass}`}
+                      className={`avatar-idle rounded-full ${avatarSizeClass}`}
                     />
                   ) : (
                     <span
                       aria-hidden="true"
-                      className={`avatar-idle flex items-center justify-center rounded-full bg-surface-raised text-ink-faint ${sizeClass} ${glowClass}`}
+                      className={`avatar-idle flex items-center justify-center rounded-full bg-surface-raised text-2xl text-ink-faint ${avatarSizeClass}`}
                     >
                       ?
                     </span>
                   )}
-                  <span className={`font-medium ${isSpeaker ? "text-sm text-ink" : "text-xs text-ink-muted"}`}>
+                  <span className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
                     {persona.name}
                   </span>
+                  {isSpeaker && (
+                    <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-success">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
+                      発言中
+                    </span>
+                  )}
                 </div>
               );
             })}
           </div>
-          {lastPersonaTurn ? (
-            <div className="border-t border-line bg-surface px-5 py-4">
-              <p className="text-xs font-semibold text-accent">
-                {personaNames.get(lastPersonaTurn.persona_id ?? "") ?? "擬似メンバー"}
-              </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{lastPersonaTurn.content}</p>
-            </div>
-          ) : (
-            <div className="border-t border-line bg-surface px-5 py-4 text-center text-sm text-ink-muted">
-              下から話しかけてみよう。
-            </div>
-          )}
+          {/* ビデオ会議アプリのライブキャプション欄のように、直近の発言をテキストでも見せる。 */}
+          <div className="mt-2 rounded-md border border-line bg-surface px-4 py-3 text-sm">
+            {lastPersonaTurn ? (
+              <>
+                <span className="font-semibold text-accent">
+                  {personaNames.get(lastPersonaTurn.persona_id ?? "") ?? "擬似メンバー"}:{" "}
+                </span>
+                <span className="whitespace-pre-wrap text-ink">{lastPersonaTurn.content}</span>
+              </>
+            ) : (
+              <span className="text-ink-muted">下から話しかけてみよう。</span>
+            )}
+          </div>
         </div>
       )}
 

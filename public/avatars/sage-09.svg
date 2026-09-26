@@ -1,15 +1,26 @@
 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="経験豊富な賢者">
   <circle cx="100" cy="100" r="100" fill="#c4b5fd"/>
-  <circle cx="52" cy="122" r="10" fill="#8d5524"/>
-  <circle cx="148" cy="122" r="10" fill="#8d5524"/>
-  <circle cx="100" cy="120" r="52" fill="#8d5524"/>
-  <path d="M48,96 A52,52 0 0 1 152,96" fill="none" stroke="#a9a9a9" stroke-width="4" opacity="0.6"/>
-  <circle cx="82" cy="114" r="5" fill="#292524"/>
-  <circle cx="118" cy="114" r="5" fill="#292524"/>
-  <line x1="72" y1="98" x2="88" y2="98" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
-    <line x1="112" y1="98" x2="128" y2="98" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
-  <path d="M80,138 Q100,156 120,138" fill="none" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="82" cy="114" r="14" fill="none" stroke="#292524" stroke-width="3"/>
-    <circle cx="118" cy="114" r="14" fill="none" stroke="#292524" stroke-width="3"/>
-    <line x1="96" y1="114" x2="104" y2="114" stroke="#292524" stroke-width="3"/>
+  <!-- 肩(上半身)。首のすぐ下から画面の外まではみ出す大きな1つの楕円にすることで、
+       表示側の丸いクリップ(rounded-full)と合わせて自然な肩のなで肩カーブになる
+       (左右2つの楕円+矩形にすると継ぎ目に背景色の隙間ができたため、1つにまとめた)。 -->
+  <ellipse cx="100" cy="178" rx="92" ry="48" fill="#6d28d9"/>
+  <!-- 首 -->
+  <rect x="84" y="110" width="32" height="45" fill="#8d5524"/>
+  <!-- 首と肩の境目のV字の襟(装飾) -->
+  <path d="M85,148 L100,162 L115,148" fill="none" stroke="#4a05b6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- 耳(頭部の下敷きになる分を先に描く) -->
+  <circle cx="59" cy="90" r="8" fill="#8d5524"/>
+  <circle cx="141" cy="90" r="8" fill="#8d5524"/>
+  <!-- 頭部 -->
+  <circle cx="100" cy="88" r="44" fill="#8d5524"/>
+  <path d="M56,68 A44,44 0 0 1 144,68" fill="none" stroke="#a9a9a9" stroke-width="4" opacity="0.6"/>
+  <circle cx="85" cy="83" r="4" fill="#292524"/>
+  <circle cx="115" cy="83" r="4" fill="#292524"/>
+  <line x1="76" y1="69" x2="90" y2="69" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+    <line x1="110" y1="69" x2="124" y2="69" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+  <path d="M98,90 Q95,98 100,100" fill="none" stroke="rgba(41,37,36,0.35)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M83,103 Q100,119 117,103" fill="none" stroke="#292524" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="85" cy="83" r="12" fill="none" stroke="#292524" stroke-width="3"/>
+    <circle cx="115" cy="83" r="12" fill="none" stroke="#292524" stroke-width="3"/>
+    <line x1="97" y1="83" x2="103" y2="83" stroke="#292524" stroke-width="3"/>
 </svg>

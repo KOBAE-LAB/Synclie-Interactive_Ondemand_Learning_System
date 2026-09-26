@@ -95,16 +95,33 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .avatar-idle,
-  .thinking-dot {
+  .thinking-dot,
+  .persona-tile-speaking {
     animation: none;
   }
 }
 
-/* F25: 対話の相手に向かって話している臨場感を出す「舞台」の背景。
-   教室の黒板前を薄く連想させるグラデーションのみで、画像は使わない
-   (都度の画像生成コストを避ける方針はF25のまま)。 */
-.persona-stage {
+/* F25: 擬似メンバーとの対話を、ビデオ会議(Teams/Zoom)の「カメラオフ」タイルの
+   ような見た目にする。実写/3Dアバターは使わず、既存の丸アバター画像だけで
+   「発言者と向き合っている」臨場感を出す(都度の画像生成はしない方針はF25のまま)。 */
+.persona-tile {
   background:
-    radial-gradient(ellipse 55% 60% at 50% 15%, rgba(245, 197, 24, 0.1), transparent 70%),
-    linear-gradient(to bottom, #1c1c20 0%, #131316 55%, #0f0f11 100%);
+    linear-gradient(105deg, rgba(245, 197, 24, 0.07) 0%, transparent 38%),
+    linear-gradient(255deg, rgba(192, 119, 114, 0.09) 0%, transparent 42%),
+    linear-gradient(to bottom, #202024 0%, #17171a 60%, #131315 100%);
+}
+
+/* 発言中のタイルを、ビデオ会議アプリの「話している人」の緑の縁取りのように
+   ゆっくり明滅させる。 */
+@keyframes speaking-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(95, 207, 146, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(95, 207, 146, 0);
+  }
+}
+.persona-tile-speaking {
+  animation: speaking-pulse 1.8s ease-in-out infinite;
 }
