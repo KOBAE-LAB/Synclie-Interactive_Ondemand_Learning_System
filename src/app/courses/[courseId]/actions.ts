@@ -153,6 +153,33 @@ export async function unshareMaterialAction(courseId: string, materialId: string
   revalidatePath(`/courses/${courseId}`);
 }
 
+// F05拡張:「テンポ」設定。学習者が沈黙している間に擬似メンバー同士で会話を
+// 自動継続するかどうかの既定値(0=オフ)と、この設定を評価の参考にするかどうかを
+// 教師が決める。学習者は自分の授業画面でテンポの既定値だけ自分用に上書きできるが、
+// 「評価の参考にするか」は教師のこの決定がそのまま学習者側に表示される(学習者は変更不可)。
+export async function updateAutoDiscussionSettingsAction(courseId: string, formData: FormData) {
+  const { user } = await requireRole("teacher");
+  const admin = createAdminClient();
+  await assertOwnsCourse(admin, courseId, user.id);
+
+  const raw = Number(formData.get("tempoSeconds"));
+  const tempoSeconds = Number.isFinite(raw) && raw > 0 ? raw : null;
+  const affectsEvaluation = formData.get("affectsEvaluation") === "on";
+
+  const { error } = await admin
+    .from("courses")
+    .update({
+      auto_discussion_tempo_seconds: tempoSeconds,
+      auto_discussion_affects_evaluation: affectsEvaluation,
+    })
+    .eq("id", courseId);
+  if (error) {
+    throw new Error(`設定の保存に失敗しました: ${error.message}`);
+  }
+
+  revalidatePath(`/courses/${courseId}`);
+}
+
 // F02: この授業でまだ知識ベース化されていない資料(pending/failed)をまとめて生成する。
 export async function generateAllPendingRagAction(courseId: string) {
   const { user } = await requireRole("teacher");

@@ -246,11 +246,14 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
     学習者ごとに1つの進行中セッション(`learning_sessions`, `ended_at is null`)を
     get-or-createし、発言のたびに`actions.ts`の`sendMessageAction`が
     (1)学習者発言を保存 → (2)F04で`active`にした擬似メンバーの中から1体選ぶ
-    (`pickRespondingPersona`。複数体いる場合、学習者の発言で名指しされた
-    ペルソナがいればそれを優先し(`isPersonaMentioned`、正式名の末尾一致で
-    「山田くん」のような略した呼び方にも対応)、無ければ発言が少ないペルソナの中から
-    ランダムに選ぶ。「発言が少ない順に機械的に選ぶと、複数人いる時に順番に発言している
-    ような不自然さがある」という指摘を受けて、名指し優先+同数内ランダムに直した) →
+    (`pickRespondingPersona`。複数体いる場合、(a)学習者の発言で名指しされたペルソナが
+    いればそれを優先し、(b)無くても直前の擬似メンバーの発言が別のペルソナを名指し
+    (反論・言及)していればその名指しされた本人を優先し、(c)どちらも無ければ発言が
+    少ないペルソナの中からランダムに選ぶ(`isPersonaMentioned`、正式名の末尾一致で
+    「山田くん」のような略した呼び方にも対応)。「発言が少ない順に機械的に選ぶと、
+    複数人いる時に順番に発言しているような不自然さがある」「名指しで反論しても、
+    名指しされた本人ではなく別の未発言のメンバーが割り込んでしまう」という指摘を
+    受けて、(a)(b)の優先順位を追加した) →
     (3)`src/lib/rag/search.ts`で授業RAG(F02の`material_chunks`)から関連チャンクを検索 →
     (4)`src/lib/ai/persona.ts`の`askPersona`で発言を生成 → (5)保存、の順で処理する。
     複数のペルソナがいる授業では、擬似メンバーの発言は全て`dialogue_turns`上
@@ -262,6 +265,26 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
     `PersonaProfile.otherParticipants`で他の使用中ペルソナの名前・立場も伝えるようにした
     (`persona.ts`の`buildPersonaSystemPrompt`と`COMMON_GUARDRAILS`に、学習者だけでなく
     他の擬似メンバーの発言にも根拠なく同調しない旨を追記)。
+    **「テンポ」設定(沈黙時の自動継続)**: 「自分の発言を待たずにAI同士が語るのも自然」
+    という要望を受け、学習者がしばらく発言しない時、擬似メンバー同士で会話を自動的に
+    続けられるようにした。ただし「無制限だと授業時間を消費してコストも際限なくなる」
+    という懸念があったため、(1)学習者の発言をまたがずに連続で自動継続できる回数を
+    `AUTO_CONTINUE_CAP`(`src/lib/discussion-tempo.ts`、既定2回)で打ち切り、
+    (2)裏で動くcron/ポーリングは作らず、学習画面が開いている間だけ動くクライアント側の
+    沈黙タイマー(`src/components/auto-discussion-timer.tsx`の`AutoDiscussionTimer`、
+    `useEffect`+`setTimeout`。SubmitButton/ThinkingIndicatorに次ぐ3つ目の
+    `"use client"`理由で、この機能だけは「学習者が何も操作しないこと」自体を検知する
+    必要があるため)で完結させている。「テンポ」(沈黙してから自動継続するまでの秒数、
+    `TEMPO_OPTIONS`)は教師が`courses/[courseId]/page.tsx`で既定値を設定し
+    (`courses.auto_discussion_tempo_seconds`、0/未設定=オフ)、学習者は自分の
+    授業画面(`learn/[courseId]/page.tsx`の`<details>`)でその既定値を自分用に
+    上書きできる(`learning_sessions.auto_discussion_tempo_seconds`)。「この設定を
+    評価の参考にするか」(`courses.auto_discussion_affects_evaluation`)は教師だけが
+    決められ、学習者側には表示のみ(変更不可)。自動継続で生成された発言は
+    `dialogue_turns.auto_generated=true`で区別し、対話ログ・キャプション欄の両方に
+    「(自動継続)」と表示して、後から教師が振り返る時に見分けられるようにしている
+    (`autoContinueDiscussionAction`。新しい学習者発言が無いため、F20の論証評価
+    (`evaluateArgument`)は呼ばない。資料検索は直近の学習者発言を手がかりに行う)。
     同じページの下段にF06(テキスト入力)の「成果を提出する」フォームがある
     (`submitOutcomeAction`)。`dialogue_turns`(逐次のやり取り)とは別に、議論を経て
     まとめた「成果」を`submissions`テーブルに保存する。各提出物には「フィードバックをもらう」
@@ -560,6 +583,12 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
     F09/F11の`student_profiles`/`personalization_suggestions`と違い`course_id`を持たない
     (`student_id`に`unique`制約)。F11と違い教師の採用ワークフロー(status)も持たない
     (学習者本人にそのまま見せる提案のため)
+  - `0026_avatar_illustrations.sql` — F25用。`avatar_options.file_path`をコード生成の
+    `.svg`からユーザー用意の`.png`イラストに向け直すupdate文(16件。行・スキーマ自体は変更なし)
+  - `0027_auto_discussion_tempo.sql` — F05拡張。「テンポ」(沈黙時の自動継続)用に
+    `courses.auto_discussion_tempo_seconds`/`auto_discussion_affects_evaluation`、
+    `learning_sessions.auto_discussion_tempo_seconds`、
+    `dialogue_turns.auto_generated`を追加(詳細は8章の`learn/`の説明を参照)
 - `scripts/stage0/` — 段階0の使い捨てプロトタイプ(`debate_experiment.py`)。
   ペルソナ対話と論証評価の「質感」を、画面なしでローカル検証するためのCLIスクリプト。
   段階1のNext.js実装に置き換わる前提の使い捨てコード。

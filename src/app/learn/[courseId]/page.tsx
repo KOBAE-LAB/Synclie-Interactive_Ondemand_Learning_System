@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { requireConsent } from "@/lib/consent";
 import { SubmitButton } from "@/components/submit-button";
 import { ThinkingIndicator } from "@/components/thinking-indicator";
+import { AutoDiscussionTimer } from "@/components/auto-discussion-timer";
 import {
   sendMessageAction,
   submitOutcomeAction,
@@ -17,7 +18,10 @@ import {
   confirmAudioAction,
   discardAudioAction,
   judgeDiscussionAction,
+  autoContinueDiscussionAction,
+  updateSessionTempoAction,
 } from "./actions";
+import { AUTO_CONTINUE_CAP, TEMPO_OPTIONS } from "@/lib/discussion-tempo";
 
 // F25: ビデオ会議アプリの「映像」のように、背景と人物を別々の画像として重ねて見せる。
 // 人物イラスト(public/avatars/*.png)は教師(ユーザー本人)がAIツールで用意したものに
@@ -55,6 +59,7 @@ interface DialogueTurnRow {
   persona_id: string | null;
   content: string;
   source_kind: "text" | "handwriting" | "audio";
+  auto_generated: boolean;
 }
 
 type HandwritingStatus = "recognizing" | "ready" | "failed" | "confirmed";
@@ -141,7 +146,9 @@ export default async function LearnCourseSessionPage({
 
   const { data: course } = await admin
     .from("courses")
-    .select("id, title, subject, mode")
+    .select(
+      "id, title, subject, mode, auto_discussion_tempo_seconds, auto_discussion_affects_evaluation",
+    )
     .eq("id", courseId)
     .maybeSingle();
 
@@ -151,7 +158,7 @@ export default async function LearnCourseSessionPage({
 
   const { data: session } = await admin
     .from("learning_sessions")
-    .select("id")
+    .select("id, auto_discussion_tempo_seconds")
     .eq("course_id", courseId)
     .eq("student_id", user.id)
     .is("ended_at", null)
@@ -168,7 +175,7 @@ export default async function LearnCourseSessionPage({
   if (session) {
     const { data: turnRows } = await admin
       .from("dialogue_turns")
-      .select("id, speaker_type, persona_id, content, source_kind")
+      .select("id, speaker_type, persona_id, content, source_kind, auto_generated")
       .eq("session_id", session.id)
       .order("created_at", { ascending: true });
     turns = (turnRows ?? []) as DialogueTurnRow[];
@@ -235,6 +242,18 @@ export default async function LearnCourseSessionPage({
   const lastPersonaTurn = [...turns].reverse().find((t) => t.speaker_type === "persona");
   const lastPersonaSpeakerId = lastPersonaTurn?.persona_id ?? null;
 
+  // 「テンポ」設定: 学習者本人の上書きが無ければ教師の既定値を使う(0/未設定=オフ)。
+  // 直近の発言が自動継続(auto_generated)で何連続しているかを数え、上限に達していれば
+  // これ以上は自動継続しない(学習者が発言するまで待つ)。
+  const effectiveTempoSeconds =
+    session?.auto_discussion_tempo_seconds ?? course.auto_discussion_tempo_seconds ?? 0;
+  let autoContinueStreak = 0;
+  for (const turn of [...turns].reverse()) {
+    if (turn.speaker_type === "persona" && turn.auto_generated) autoContinueStreak++;
+    else break;
+  }
+  const autoContinueCapReached = autoContinueStreak >= AUTO_CONTINUE_CAP;
+
   // F11: 教師が採用した個別最適化の提案のうち、探究テーマの提案だけは学習者にも見せる
   // (促し方・難度の調整は対話生成側にだけ反映し、学習者には裏側の調整として見せない)。
   const { data: personalization } = await admin
@@ -300,6 +319,8 @@ export default async function LearnCourseSessionPage({
   const boundSubmitOutcomeAction = submitOutcomeAction.bind(null, courseId);
   const boundUploadHandwritingAction = uploadHandwritingAction.bind(null, courseId);
   const boundUploadAudioAction = uploadAudioAction.bind(null, courseId);
+  const boundUpdateSessionTempoAction = updateSessionTempoAction.bind(null, courseId);
+  const boundAutoContinueAction = autoContinueDiscussionAction.bind(null, courseId);
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -316,6 +337,57 @@ export default async function LearnCourseSessionPage({
       >
         ポートフォリオを見る(F08)→
       </Link>
+
+      <details className="mt-3 rounded-md border border-line px-4 py-3 text-sm">
+        <summary className="cursor-pointer font-medium text-ink">
+          沈黙時の自動継続(テンポ)
+        </summary>
+        <p className="mt-2 text-xs text-ink-muted">
+          発言せずにいると、擬似メンバー同士が会話を少しだけ自動的に続けます(最大
+          {AUTO_CONTINUE_CAP}回)。教師の既定値:{" "}
+          {course.auto_discussion_tempo_seconds
+            ? TEMPO_OPTIONS.find((o) => o.value === course.auto_discussion_tempo_seconds)?.label ??
+              `${course.auto_discussion_tempo_seconds}秒`
+            : "オフ"}
+          ・この設定は
+          <span className={course.auto_discussion_affects_evaluation ? "text-warn" : ""}>
+            {course.auto_discussion_affects_evaluation ? "評価の参考にされます" : "評価には使われません"}
+          </span>
+          (教師の設定。学習者側では変更できません)。
+        </p>
+        <form action={boundUpdateSessionTempoAction} className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="text-xs text-ink-muted">
+            自分用のテンポ(未選択なら教師の既定値を使う):
+            <select
+              name="tempoSeconds"
+              defaultValue={session?.auto_discussion_tempo_seconds ? String(session.auto_discussion_tempo_seconds) : ""}
+              className="ml-2 rounded-md border border-line px-2 py-1 text-xs bg-surface-raised"
+            >
+              <option value="">教師の既定値を使う</option>
+              {TEMPO_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface"
+          >
+            保存する
+          </button>
+        </form>
+      </details>
+
+      {effectiveTempoSeconds > 0 && (
+        <AutoDiscussionTimer
+          tempoSeconds={effectiveTempoSeconds}
+          turnCount={turns.length}
+          capReached={autoContinueCapReached}
+          action={boundAutoContinueAction}
+        />
+      )}
 
       {personalization && (
         <p className="mt-4 rounded-md border border-accent bg-accent-soft px-4 py-3 text-sm text-accent">
@@ -402,6 +474,9 @@ export default async function LearnCourseSessionPage({
                 <span className="font-semibold text-accent">
                   {personaNames.get(lastPersonaTurn.persona_id ?? "") ?? "擬似メンバー"}:{" "}
                 </span>
+                {lastPersonaTurn.auto_generated && (
+                  <span className="mr-1 text-xs text-ink-faint">(自動継続)</span>
+                )}
                 <span className="whitespace-pre-wrap text-ink">{lastPersonaTurn.content}</span>
               </>
             ) : (
@@ -642,7 +717,10 @@ export default async function LearnCourseSessionPage({
                 </span>
               )}
               <div className="max-w-[75%]">
-                <p className="mb-1 text-xs font-medium text-ink-muted">{personaName}(AI)</p>
+                <p className="mb-1 text-xs font-medium text-ink-muted">
+                  {personaName}(AI)
+                  {turn.auto_generated && <span className="ml-1 text-ink-faint">・自動継続</span>}
+                </p>
                 <div className="inline-block rounded-lg bg-surface px-4 py-2 text-left text-sm text-ink">
                   {turn.source_kind === "handwriting" && (
                     <p className="mb-1 text-xs text-ink-faint">[手書きから変換]</p>

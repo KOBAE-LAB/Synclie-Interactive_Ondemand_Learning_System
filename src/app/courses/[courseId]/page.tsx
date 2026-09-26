@@ -9,7 +9,9 @@ import {
   generateAllPendingRagAction,
   shareMaterialAction,
   unshareMaterialAction,
+  updateAutoDiscussionSettingsAction,
 } from "./actions";
+import { TEMPO_OPTIONS } from "@/lib/discussion-tempo";
 
 const KIND_LABELS: Record<string, string> = {
   syllabus: "シラバス",
@@ -46,7 +48,9 @@ export default async function CourseDetailPage({
   const admin = createAdminClient();
   const { data: course } = await admin
     .from("courses")
-    .select("id, title, subject, owner_teacher_id")
+    .select(
+      "id, title, subject, owner_teacher_id, auto_discussion_tempo_seconds, auto_discussion_affects_evaluation",
+    )
     .eq("id", courseId)
     .maybeSingle();
 
@@ -77,6 +81,7 @@ export default async function CourseDetailPage({
 
   const boundUploadAction = uploadMaterialAction.bind(null, courseId);
   const boundGenerateAllAction = generateAllPendingRagAction.bind(null, courseId);
+  const boundUpdateAutoDiscussionAction = updateAutoDiscussionSettingsAction.bind(null, courseId);
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -138,6 +143,44 @@ export default async function CourseDetailPage({
         </Link>
         を開くと擬似メンバーと議論できる
       </p>
+
+      <div className="mt-8 rounded-lg border border-line p-5">
+        <h2 className="text-sm font-medium text-ink">沈黙時の自動継続(テンポ)</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          学習者がしばらく発言しない時、擬似メンバー同士で会話を少しだけ自動的に続けさせるかどうかの
+          既定値。学習者は自分の授業画面でこの秒数を自分用に上書きできる(オフにもできる)。
+        </p>
+        <form action={boundUpdateAutoDiscussionAction} className="mt-3 space-y-3">
+          <label className="block text-sm">
+            <span className="block text-ink-muted">既定のテンポ</span>
+            <select
+              name="tempoSeconds"
+              defaultValue={String(course.auto_discussion_tempo_seconds ?? 0)}
+              className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm bg-surface-raised"
+            >
+              {TEMPO_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-ink-muted">
+            <input
+              type="checkbox"
+              name="affectsEvaluation"
+              defaultChecked={course.auto_discussion_affects_evaluation}
+            />
+            このテンポ設定を評価の参考にする(学習者の授業画面にもその旨を表示します)
+          </label>
+          <button
+            type="submit"
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface"
+          >
+            保存する
+          </button>
+        </form>
+      </div>
 
       <form
         action={boundUploadAction}

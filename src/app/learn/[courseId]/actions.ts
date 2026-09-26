@@ -10,12 +10,19 @@ import { generateOutcomeFeedback } from "@/lib/ai/feedback";
 import { evaluateArgument, judgeDiscussion } from "@/lib/ai/argument-evaluation";
 import { recognizeHandwriting } from "@/lib/ai/handwriting";
 import { transcribeAudio } from "@/lib/ai/audio";
+import { AUTO_CONTINUE_CAP } from "@/lib/discussion-tempo";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 // LLMに渡す直近の対話ログの件数。全履歴を渡すとコストが際限なく増えるため絞る
 // (要件定義書10章「コスト」: 段階0〜1は呼び出し回数・トークン量を絞る方針)。
 const HISTORY_LIMIT = 10;
+
+// AUTO_CONTINUE_CAP(学習者が沈黙している間、擬似メンバー同士の会話を自動継続する
+// 回数の上限)は src/lib/discussion-tempo.ts で定義している。「自分の発言を待たずに
+// AI同士が語るのも自然」という要望と、「無制限だと授業時間を消費してコストも際限なく
+// なる」という懸念の両方を踏まえた上限で、page.tsx側の表示にも同じ値を使うが、
+// "use server"ファイルはasync関数以外をexportできないためここでは再exportしない。
 
 interface ActivePersonaRow {
   id: string;
@@ -110,9 +117,24 @@ async function pickRespondingPersona(
 
   const { data: personaTurns } = await admin
     .from("dialogue_turns")
-    .select("persona_id")
+    .select("persona_id, content")
     .eq("session_id", sessionId)
-    .eq("speaker_type", "persona");
+    .eq("speaker_type", "persona")
+    .order("created_at", { ascending: false });
+
+  // 学習者が誰も名指ししていない場合でも、直前の擬似メンバーの発言が他のメンバーを
+  // 名指しして反論・言及していれば、その名指しされた人に答えさせる。これが無いと、
+  // 名指しされた本人ではなく、まだ発言していない別のメンバーが「発言が少ない順」で
+  // 割り込んでしまい、話がかみ合わないまま次々に人が入れ替わって見える。
+  const lastPersonaTurn = (personaTurns ?? [])[0];
+  if (lastPersonaTurn) {
+    const calledOut = activePersonas.find(
+      (p) => p.id !== lastPersonaTurn.persona_id && isPersonaMentioned(p.name, lastPersonaTurn.content),
+    );
+    if (calledOut) {
+      return { chosen: calledOut, others: activePersonas.filter((p) => p.id !== calledOut.id) };
+    }
+  }
 
   const turnCounts = new Map<string, number>();
   for (const persona of activePersonas) turnCounts.set(persona.id, 0);
@@ -325,6 +347,146 @@ async function postStudentMessageAndRespond(
       persona_conceded: conceded,
       unwarranted_conformity: conceded && !hasNewEvidence,
     });
+  }
+
+  revalidatePath(`/learn/${courseId}`);
+}
+
+// 「テンポ」設定: 学習者が何秒か発言しない状態が続いたら、擬似メンバー同士で
+// 会話を1ターンだけ自動的に継続する(学習者本人の発言を待たない)。クライアント側の
+// 沈黙タイマー(AutoDiscussionTimer)から呼ばれる。無効化されている・上限に達している・
+// 対話がまだ始まっていない、のいずれかなら何もしない(エラーにはしない。学習者の
+// 操作ではないため、失敗しても対話画面は静かに元のまま)。
+export async function autoContinueDiscussionAction(courseId: string) {
+  const { user } = await requireRole("student");
+  const admin = createAdminClient();
+
+  const { data: session } = await admin
+    .from("learning_sessions")
+    .select("id, auto_discussion_tempo_seconds")
+    .eq("course_id", courseId)
+    .eq("student_id", user.id)
+    .is("ended_at", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!session) return;
+
+  const { data: course } = await admin
+    .from("courses")
+    .select("auto_discussion_tempo_seconds")
+    .eq("id", courseId)
+    .maybeSingle();
+  if (!course) return;
+
+  // 学習者本人が自分の授業画面で上書きしていればそちらを優先し、無ければ教師の既定値を使う。
+  const tempoSeconds = session.auto_discussion_tempo_seconds ?? course.auto_discussion_tempo_seconds ?? 0;
+  if (!tempoSeconds || tempoSeconds <= 0) return;
+
+  const { data: recentTurnsData } = await admin
+    .from("dialogue_turns")
+    .select("speaker_type, content, persona_id, auto_generated")
+    .eq("session_id", session.id)
+    .order("created_at", { ascending: false })
+    .limit(HISTORY_LIMIT);
+  const recentTurns = recentTurnsData ?? [];
+  if (recentTurns.length === 0) return; // まだ誰も発言していない
+
+  // 直近(新しい順)に自動継続の発言が何連続しているかを数え、上限に達していれば止める。
+  let autoStreak = 0;
+  for (const t of recentTurns) {
+    if (t.speaker_type === "persona" && t.auto_generated) autoStreak++;
+    else break;
+  }
+  if (autoStreak >= AUTO_CONTINUE_CAP) return;
+
+  const picked = await pickRespondingPersona(admin, courseId, session.id, "");
+  if (!picked) return;
+  const { chosen: persona, others } = picked;
+
+  // 新しい学習者発言は無いため、直近の学習者発言を手がかりに資料を検索する
+  // (無ければ資料検索はせず「関連資料なし」として扱う)。
+  const lastStudentTurn = recentTurns.find((t) => t.speaker_type === "student");
+  const materialChunks = lastStudentTurn ? await searchMaterialChunks(courseId, lastStudentTurn.content) : [];
+  const materialText =
+    materialChunks.length > 0
+      ? materialChunks.map((chunk, i) => `[資料${i + 1}]\n${chunk}`).join("\n\n")
+      : "(この場面に関連する資料は見つからなかった。資料にないことは断定せず問い返すこと。)";
+
+  const historyPersonaIds = [
+    ...new Set(recentTurns.map((t) => t.persona_id).filter((id): id is string => !!id)),
+  ];
+  const { data: historyPersonaRows } =
+    historyPersonaIds.length > 0
+      ? await admin.from("personas").select("id, name").in("id", historyPersonaIds)
+      : { data: [] };
+  const historyPersonaNames = new Map((historyPersonaRows ?? []).map((p) => [p.id, p.name]));
+
+  const history: ChatTurn[] = [...recentTurns].reverse().map((turn) => {
+    if (turn.speaker_type === "student") return { role: "user" as const, content: turn.content };
+    const speakerName = turn.persona_id ? (historyPersonaNames.get(turn.persona_id) ?? "擬似メンバー") : "擬似メンバー";
+    return { role: "assistant" as const, content: `${speakerName}: ${turn.content}` };
+  });
+
+  const otherParticipants =
+    others.length > 0
+      ? others
+          .map(
+            (p) =>
+              `- ${p.name}(${p.profile?.role ?? "役割未設定"}): 立場「${p.stance?.position ?? "(未設定)"}」`,
+          )
+          .join("\n")
+      : undefined;
+
+  const personaProfile: PersonaProfile = {
+    name: persona.name,
+    role: persona.profile?.role ?? "",
+    tone: persona.profile?.tone ?? "",
+    stance: `立場: ${persona.stance?.position ?? "(未設定)"}\n目標: ${persona.stance?.goal ?? "(未設定)"}`,
+    materialText,
+    behaviorNotes: buildBehaviorNotes(persona.behavior_rules),
+    turnGuidance:
+      "学習者からの新しい発言はまだ無い。少し沈黙が続いたため、あなたから会話を継続する番になった。" +
+      "他の参加者の発言があればそれに応答・反論してよいし、学習者に短く問いかけてもよい。",
+    otherParticipants,
+  };
+
+  let replyText: string;
+  try {
+    const result = await askPersona(personaProfile, history);
+    replyText = result.reply;
+  } catch {
+    return; // 自動継続は失敗しても対話は止めない(学習者の操作起点ではないため)
+  }
+
+  await admin.from("dialogue_turns").insert({
+    session_id: session.id,
+    speaker_type: "persona",
+    persona_id: persona.id,
+    content: replyText,
+    auto_generated: true,
+  });
+
+  revalidatePath(`/learn/${courseId}`);
+}
+
+// 「テンポ」設定: 学習者が自分の授業画面で、自動継続までの秒数を自分用に上書きする。
+// 空欄にすると教師の既定値(courses.auto_discussion_tempo_seconds)に戻る。
+export async function updateSessionTempoAction(courseId: string, formData: FormData) {
+  const { user } = await requireRole("student");
+  const admin = createAdminClient();
+
+  const sessionId = await getOrCreateSession(admin, courseId, user.id);
+  const raw = String(formData.get("tempoSeconds") ?? "").trim();
+  const parsed = raw === "" ? null : Number(raw);
+  const value = parsed !== null && Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+
+  const { error } = await admin
+    .from("learning_sessions")
+    .update({ auto_discussion_tempo_seconds: value })
+    .eq("id", sessionId);
+  if (error) {
+    throw new Error(`テンポ設定の保存に失敗しました: ${error.message}`);
   }
 
   revalidatePath(`/learn/${courseId}`);
