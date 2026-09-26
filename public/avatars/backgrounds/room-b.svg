@@ -1,0 +1,18 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="背景">
+  <defs>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="45"/>
+    </filter>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a1d20"/>
+      <stop offset="60%" stop-color="#141618"/>
+      <stop offset="100%" stop-color="#0f0f11"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#base)"/>
+  <g filter="url(#blur)">
+    <circle cx="340" cy="110" r="100" fill="#5fcf92" opacity="0.1"/>
+    <circle cx="70" cy="90" r="80" fill="#c07772" opacity="0.12"/>
+    <circle cx="120" cy="340" r="120" fill="#f5c518" opacity="0.08"/>
+  </g>
+</svg>

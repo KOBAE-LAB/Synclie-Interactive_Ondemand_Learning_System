@@ -19,6 +19,19 @@ import {
   judgeDiscussionAction,
 } from "./actions";
 
+// F25: ビデオ会議アプリの「映像」のように、背景と人物を別々の画像として重ねて見せる
+// (背景は部屋のボケ画像、人物は透過PNGならぬ透過SVGの半身イラスト)。背景はDBに持たず、
+// ペルソナIDから決定的に3種類から選ぶだけの表示上の演出(同じペルソナなら常に同じ背景になる)。
+const PERSONA_BACKGROUNDS = ["room-a", "room-b", "room-c"];
+function backgroundFor(personaId: string): string {
+  let hash = 0;
+  for (let i = 0; i < personaId.length; i++) {
+    hash = (hash * 31 + personaId.charCodeAt(i)) | 0;
+  }
+  const index = Math.abs(hash) % PERSONA_BACKGROUNDS.length;
+  return `/avatars/backgrounds/${PERSONA_BACKGROUNDS[index]}.svg`;
+}
+
 interface DialogueTurnRow {
   id: string;
   speaker_type: "student" | "persona";
@@ -302,10 +315,12 @@ export default async function LearnCourseSessionPage({
 
       {activePersonas.length > 0 && (
         <div className="mt-6">
-          {/* ビデオ会議アプリ(Teams/Zoom等)の「カメラオフ」参加者タイルのような見た目にし、
-              対話の相手と向き合っている感覚を出す。1人なら大きな1枚のタイル、複数なら
-              ギャラリービュー風に並べる。実写/3Dアバターは使わず、既存の丸アバター画像
-              (F25、都度生成はしない)をタイルの中央に大きく置くだけで表現する。 */}
+          {/* ビデオ会議アプリ(Teams/Zoom等)の「映像タイル」のような見た目にし、対話の
+              相手とカメラ越しに向き合っている感覚を出す。背景(部屋)と人物(半身イラスト、
+              透過)は別々の画像ファイルを重ねて合成する(実際のビデオ会議の背景合成と
+              同じ考え方)。1人なら大きな1枚のタイル、複数人ならギャラリービュー風に
+              並べ、まるで同期オンライン学習をしているような臨場感を出す。実写/3Dアバターは
+              使わず、既存のイラスト画像(F25、都度生成はしない)をそのまま使う。 */}
           <div className={`grid gap-3 ${activePersonas.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
             {activePersonas.map((persona) => {
               const avatarPath = personaAvatarPaths.get(persona.id);
@@ -317,24 +332,30 @@ export default async function LearnCourseSessionPage({
               const ringClass = isSpeaker
                 ? "ring-2 ring-success persona-tile-speaking"
                 : "ring-1 ring-line";
-              const avatarSizeClass = activePersonas.length === 1 ? "h-32 w-32" : "h-20 w-20";
               return (
                 <div
                   key={persona.id}
-                  className={`persona-tile relative flex items-center justify-center overflow-hidden rounded-lg ${ringClass} ${
-                    activePersonas.length === 1 ? "aspect-video" : "aspect-square"
-                  }`}
+                  className={`relative aspect-square overflow-hidden rounded-lg bg-canvas ${ringClass}`}
                 >
+                  {/* 背景(部屋)レイヤー */}
+                  <img
+                    src={backgroundFor(persona.id)}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                  {/* 人物レイヤー(透過)。背景と同じ正方形の構図で作っているので、
+                      そのまま重ねるだけで自然に合成される。 */}
                   {avatarPath ? (
                     <img
                       src={avatarPath}
                       alt=""
-                      className={`avatar-idle rounded-full ${avatarSizeClass}`}
+                      className="avatar-idle absolute inset-0 h-full w-full object-cover"
                     />
                   ) : (
                     <span
                       aria-hidden="true"
-                      className={`avatar-idle flex items-center justify-center rounded-full bg-surface-raised text-2xl text-ink-faint ${avatarSizeClass}`}
+                      className="absolute inset-0 flex items-center justify-center text-4xl text-ink-faint"
                     >
                       ?
                     </span>

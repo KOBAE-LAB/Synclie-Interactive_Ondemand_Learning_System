@@ -175,15 +175,31 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
   置き、擬似メンバーの応答が返るまでの間「(相手が)考えています」+点滅ドットを表示する
   (`SubmitButton`と同じ理由で`"use client"`)。「臨場感・社会的存在感を大事にしたい。
   Zoom/Teamsのようなビデオ会議のイメージで」という要望を受けて追加した。
-  `learn/[courseId]/page.tsx`の対話相手表示は、ビデオ会議アプリの「カメラオフ」参加者
-  タイル(丸アバター中央・名前ラベル左下)を模した`.persona-tile`(`globals.css`)にし、
-  直近に発言した擬似メンバー(開始直後は先頭の1人)だけ緑の縁取り+「発言中」バッジで
-  ハイライトする。実写/3Dアバターは使わず、既存の丸アバター画像(F25、都度生成はしない
-  方針のまま)をタイルに載せるだけで表現している。1人なら大きな1枚のタイル、複数なら
-  `grid-cols-2`のギャラリービューにする。タイルの下には、ビデオ会議のライブキャプション欄を
-  模して直近の発言をテキストでも表示する。あわせてアバター用の控えめなアイドル
-  アニメーション(`.avatar-idle`、静止画+CSSのみ)も入れている。どちらも
-  `prefers-reduced-motion`を尊重して無効化する
+  `learn/[courseId]/page.tsx`の対話相手表示は、ビデオ会議アプリの「映像タイル」を模し、
+  名前ラベル(左下)・発言中バッジ(右上、直近に発言した擬似メンバーだけ緑の縁取りと
+  あわせて表示)を重ねている。1人なら大きな1枚のタイル、複数人なら`grid-cols-2`の
+  ギャラリービューにし、まるで同期オンライン学習をしているような臨場感を出す。
+  タイルの下には、ビデオ会議のライブキャプション欄を模して直近の発言をテキストでも表示する。
+  **アバターの絵作りは「背景」と「人物」を別々の画像ファイルとして持ち、表示側
+  (`learn/[courseId]/page.tsx`の`backgroundFor()`)で重ねて合成する方式**にしている
+  (自作の手描きSVGの見た目が良くないという指摘を受けて全面刷新した)。
+  - 人物: 自前でパスを描くのはやめ、実績のあるオープンソースのアバター生成ライブラリ
+    [DiceBear](https://www.dicebear.com/)(Avataaarsスタイル、`@dicebear/core`+
+    `@dicebear/collection`、devDependencies。生成スクリプトでのみ使うため本番の
+    バンドルには含まれない)に置き換えた。`scripts/dev/generate-avatar-svgs.mjs`が
+    ペルソナごとの設定(髪型・服装・表情・眼鏡・髭など)からSVGを生成し、
+    `public/avatars/`に書き出す(背景は透過)。ファイル名・`avatar_options`テーブルの
+    スキーマは変更していない(F25の推薦ロジックはラベル・タグに基づくため影響なし)。
+  - 背景: 部屋のボケ画像(ぼかした光だまりのグラデーションのみの抽象的な絵。具体的な
+    部屋を描くと下手さが出るため避けた)を`public/avatars/backgrounds/`に3種類
+    (`room-a`/`room-b`/`room-c`)用意し、`backgroundFor(personaId)`がペルソナIDから
+    決定的に(同じペルソナは常に同じ背景になるよう)1つ選ぶ。DBには持たない、表示側だけの
+    演出。人物画像は透過なので、この背景の上に重ねるだけで自然に合成される。
+  - どちらのタイルも正方形(`aspect-square`)にしており、人物画像自体も正方形の構図
+    (頭部が上端寄り、肩が左右・下端まで届く)で作っているため、object-fit:coverで
+    ぴったり画面いっぱいに収まる。
+  あわせてアバター用の控えめなアイドルアニメーション(`.avatar-idle`、静止画+CSSのみ)も
+  入れている。どちらも`prefers-reduced-motion`を尊重して無効化する
 - `src/app/` — Next.js App Router のページ・APIルート
   - `src/app/page.tsx` — ログイン後の行き先をロールで振り分ける(教師→`/courses`、
     学習者→`/learn`)。`login/actions.ts`の`loginAction`は`redirectTo: "/"`固定にしてあり、
@@ -533,10 +549,12 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
 - `scripts/dev/generate-lti-keys.mjs` — F17用: このツール自身のRSA署名鍵ペア(PKCS8 PEM)を
   生成し、`.env.local`に貼り付ける`LTI_TOOL_PRIVATE_KEY`/`LTI_TOOL_KEY_ID`を出力する
   (`node scripts/dev/generate-lti-keys.mjs`)。
-- `scripts/dev/generate-avatar-svgs.mjs` — F25用: アバター候補プールの実体
-  (フラットイラスト風の顔アイコンSVG、画像生成APIは使わずコード内で図形として組み立てる)を
-  `public/avatars/`に書き出し、`0024_persona_avatars.sql`に貼り付ける insert 文を標準出力する
-  使い捨てスクリプト(候補を増やしたい時の参考用に残してある)。
+- `scripts/dev/generate-avatar-svgs.mjs` — F25用: アバター候補プールの実体を
+  `public/avatars/`(人物、DiceBear/Avataaarsスタイルで生成)・
+  `public/avatars/backgrounds/`(背景、ぼかしグラデーションのみ)に書き出し、
+  `0024_persona_avatars.sql`相当の insert 文を標準出力する(候補を増やしたい・
+  設定を調整したい時はこのスクリプトの`AVATARS`/`BACKGROUNDS`配列を編集して再実行する。
+  画像生成APIは使わない方針は変わらない)。
 
 ### UIレビューでの指摘と対応(2026-09-26)
 
