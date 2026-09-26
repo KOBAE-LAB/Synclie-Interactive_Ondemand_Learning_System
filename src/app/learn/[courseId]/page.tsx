@@ -19,17 +19,34 @@ import {
   judgeDiscussionAction,
 } from "./actions";
 
-// F25: ビデオ会議アプリの「映像」のように、背景と人物を別々の画像として重ねて見せる
-// (背景は部屋のボケ画像、人物は透過PNGならぬ透過SVGの半身イラスト)。背景はDBに持たず、
-// ペルソナIDから決定的に3種類から選ぶだけの表示上の演出(同じペルソナなら常に同じ背景になる)。
-const PERSONA_BACKGROUNDS = ["room-a", "room-b", "room-c"];
-function backgroundFor(personaId: string): string {
-  let hash = 0;
-  for (let i = 0; i < personaId.length; i++) {
-    hash = (hash * 31 + personaId.charCodeAt(i)) | 0;
-  }
-  const index = Math.abs(hash) % PERSONA_BACKGROUNDS.length;
-  return `/avatars/backgrounds/${PERSONA_BACKGROUNDS[index]}.svg`;
+// F25: ビデオ会議アプリの「映像」のように、背景と人物を別々の画像として重ねて見せる。
+// 人物イラスト(public/avatars/*.png)は教師(ユーザー本人)がAIツールで用意したものに
+// 差し替え済み。背景(教室・オフィス等の写真、public/avatars/backgrounds/)はDBに持たず、
+// 人物画像のファイル名(avatar_optionsのテンプレートID)から、雰囲気が合う部屋を
+// 決定的に選ぶだけの表示上の演出。
+const AVATAR_BACKGROUNDS: Record<string, string> = {
+  "genki-01": "elementary-classroom",
+  "kokishin-02": "elementary-classroom",
+  "shincho-03": "jhs-classroom",
+  "kaigi-04": "jhs-classroom",
+  "manabi-11": "jhs-classroom",
+  "hikaeme-12": "jhs-classroom",
+  "playful-15": "jhs-classroom",
+  "gentle-16": "jhs-classroom",
+  "debater-08": "lecture-hall",
+  "sage-09": "lecture-hall",
+  "analyst-06": "office",
+  "warm-07": "office",
+  "cheerful-13": "office",
+  "mentor-05": "meeting-room",
+  "critic-10": "meeting-room",
+  "formal-14": "meeting-room",
+};
+const DEFAULT_BACKGROUND = "office";
+function backgroundFor(avatarPath: string | undefined): string {
+  const templateId = avatarPath?.match(/\/avatars\/([a-z0-9-]+)\.\w+$/)?.[1];
+  const name = (templateId && AVATAR_BACKGROUNDS[templateId]) || DEFAULT_BACKGROUND;
+  return `/avatars/backgrounds/${name}.jpg`;
 }
 
 interface DialogueTurnRow {
@@ -339,7 +356,7 @@ export default async function LearnCourseSessionPage({
                 >
                   {/* 背景(部屋)レイヤー */}
                   <img
-                    src={backgroundFor(persona.id)}
+                    src={backgroundFor(avatarPath)}
                     alt=""
                     aria-hidden="true"
                     className="absolute inset-0 h-full w-full object-cover"

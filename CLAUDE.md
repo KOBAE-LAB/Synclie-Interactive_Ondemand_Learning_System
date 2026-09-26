@@ -181,23 +181,29 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
   ギャラリービューにし、まるで同期オンライン学習をしているような臨場感を出す。
   タイルの下には、ビデオ会議のライブキャプション欄を模して直近の発言をテキストでも表示する。
   **アバターの絵作りは「背景」と「人物」を別々の画像ファイルとして持ち、表示側
-  (`learn/[courseId]/page.tsx`の`backgroundFor()`)で重ねて合成する方式**にしている
-  (自作の手描きSVGの見た目が良くないという指摘を受けて全面刷新した)。
-  - 人物: 自前でパスを描くのはやめ、実績のあるオープンソースのアバター生成ライブラリ
-    [DiceBear](https://www.dicebear.com/)(Avataaarsスタイル、`@dicebear/core`+
-    `@dicebear/collection`、devDependencies。生成スクリプトでのみ使うため本番の
-    バンドルには含まれない)に置き換えた。`scripts/dev/generate-avatar-svgs.mjs`が
-    ペルソナごとの設定(髪型・服装・表情・眼鏡・髭など)からSVGを生成し、
-    `public/avatars/`に書き出す(背景は透過)。ファイル名・`avatar_options`テーブルの
-    スキーマは変更していない(F25の推薦ロジックはラベル・タグに基づくため影響なし)。
-  - 背景: 部屋のボケ画像(ぼかした光だまりのグラデーションのみの抽象的な絵。具体的な
-    部屋を描くと下手さが出るため避けた)を`public/avatars/backgrounds/`に3種類
-    (`room-a`/`room-b`/`room-c`)用意し、`backgroundFor(personaId)`がペルソナIDから
-    決定的に(同じペルソナは常に同じ背景になるよう)1つ選ぶ。DBには持たない、表示側だけの
-    演出。人物画像は透過なので、この背景の上に重ねるだけで自然に合成される。
-  - どちらのタイルも正方形(`aspect-square`)にしており、人物画像自体も正方形の構図
-    (頭部が上端寄り、肩が左右・下端まで届く)で作っているため、object-fit:coverで
-    ぴったり画面いっぱいに収まる。
+  (`learn/[courseId]/page.tsx`の`backgroundFor()`)で重ねて合成する方式**にしている。
+  当初はコードで組み立てる自作SVG(後にDiceBear/Avataaarsに置き換え)を使っていたが、
+  「センスが無い」「臨場感が持てない」という指摘を受け、**最終的にコード生成をやめ、
+  ユーザー本人が外部のAI画像生成サービスで用意したイラストに全面差し替えた**
+  (F25の「都度の画像生成はしない」方針は変わらない。都度生成ではなく、
+  あらかじめ用意した画像プールを使う点は同じ)。
+  - 人物: `public/avatars/*.png`(16人分、背景透過)。ユーザーがAI画像生成サービスで
+    複数人物×3表情(笑顔/驚き/真剣)のシート画像を作り、1コマずつ切り出したもの
+    (206×150px程度と解像度は高くないが、フラットなアニメ塗りのため拡大してもさほど
+    破綻しない)。ファイル名・`avatar_options`テーブルのスキーマ・行(id/label/tags)は
+    変更していない(`0026_avatar_illustrations.sql`で`file_path`の拡張子を
+    `.svg`→`.png`に更新しただけ)。F25の推薦ロジックはラベル・タグに基づくため影響なし。
+    新しい候補を増やしたい場合は、同じAIサービスで追加のシートを作って切り出し、
+    `public/avatars/`に置いた上で`avatar_options`に1行追加する(自動生成スクリプトは
+    廃止したので手作業)。
+  - 背景: `public/avatars/backgrounds/*.jpg`(教室・大学の講義室・オフィス・会議室の
+    実写ふうの写真、5種類)。DBには持たず、`backgroundFor(avatarPath)`が人物画像の
+    ファイル名(テンプレートID)から`AVATAR_BACKGROUNDS`(同ファイル内の定数)で
+    雰囲気の合う部屋を決定的に選ぶ(例: 小学生→`elementary-classroom`、
+    中学生→`jhs-classroom`、大人の論理派→`office`など)。人物画像は透過なので、
+    この背景の上に重ねるだけで自然に合成される。
+  - どちらのタイルも正方形(`aspect-square`)で、`object-fit: cover`を使うため、
+    横長の人物画像・背景写真でもタイルいっぱいに敷き詰められる。
   あわせてアバター用の控えめなアイドルアニメーション(`.avatar-idle`、静止画+CSSのみ)も
   入れている。どちらも`prefers-reduced-motion`を尊重して無効化する
 - `src/app/` — Next.js App Router のページ・APIルート
@@ -329,7 +335,8 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
       (`recommendPersonaAvatarAction`)・手動選択のプルダウン(`setPersonaAvatarAction`、
       AIの推薦をいつでも上書きできる)がある。候補プールは全授業共通の`avatar_options`
       テーブル(`0024_persona_avatars.sql`でシード済み、画像本体は`public/avatars/`の
-      SVG。`scripts/dev/generate-avatar-svgs.mjs`で生成した使い捨てコード)。
+      PNG。ユーザーがAI画像生成サービスで用意したイラストで、`0026_avatar_illustrations.sql`
+      で`file_path`を差し替えた。詳細は8章の`thinking-indicator.tsx`の説明を参照)。
       推薦・変更の結果は`personas.avatar_id`/`avatar_status`/`avatar_error`に保存する
       (F02/F07などと同じ status/error 列のパターン)
     - `[courseId]/criteria/` — F07用。評価の観点(例: 根拠の明確さ)を教師が作成・編集・削除する。
@@ -549,12 +556,6 @@ F24は`argument-evaluation.ts`の`judgeDiscussion()`(`evaluateArgument()`と同�
 - `scripts/dev/generate-lti-keys.mjs` — F17用: このツール自身のRSA署名鍵ペア(PKCS8 PEM)を
   生成し、`.env.local`に貼り付ける`LTI_TOOL_PRIVATE_KEY`/`LTI_TOOL_KEY_ID`を出力する
   (`node scripts/dev/generate-lti-keys.mjs`)。
-- `scripts/dev/generate-avatar-svgs.mjs` — F25用: アバター候補プールの実体を
-  `public/avatars/`(人物、DiceBear/Avataaarsスタイルで生成)・
-  `public/avatars/backgrounds/`(背景、ぼかしグラデーションのみ)に書き出し、
-  `0024_persona_avatars.sql`相当の insert 文を標準出力する(候補を増やしたい・
-  設定を調整したい時はこのスクリプトの`AVATARS`/`BACKGROUNDS`配列を編集して再実行する。
-  画像生成APIは使わない方針は変わらない)。
 
 ### UIレビューでの指摘と対応(2026-09-26)
 
